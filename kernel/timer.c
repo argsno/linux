@@ -1272,7 +1272,8 @@ SYSCALL_DEFINE1(alarm, unsigned int, seconds)
  */
 SYSCALL_DEFINE0(getpid)
 {
-	return task_tgid_vnr(current);
+	// current是一个宏，返回当前进程的task_struct结构体指针
+	return task_tgid_vnr(current); // 返回当前进程的tgid，即线程组id、进程id
 }
 
 /*

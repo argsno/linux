@@ -23,7 +23,9 @@ struct exec_domain;
 #include <asm/ftrace.h>
 #include <asm/atomic.h>
 
+// 线程信息
 struct thread_info {
+	// task: 指向task_struct结构体，表示线程对应的进程
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
 	__u32			flags;		/* low level flags */

@@ -170,10 +170,10 @@ struct eventpoll {
 	wait_queue_head_t poll_wait;
 
 	/* List of ready file descriptors */
-	struct list_head rdllist;
+	struct list_head rdllist; // 就绪的fd链表
 
 	/* RB tree root used to store monitored fd structs */
-	struct rb_root rbr;
+	struct rb_root rbr; // 红黑树根节点
 
 	/*
 	 * This is a single linked list that chains all the "struct epitem" that

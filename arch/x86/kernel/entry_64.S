@@ -431,6 +431,7 @@ END(ret_from_fork)
 /*
  * Register setup:
  * rax  system call number
+ * rax 存放系统调用号
  * rdi  arg0
  * rcx  return address for syscall/sysret, C arg3
  * rsi  arg1
@@ -452,6 +453,9 @@ END(ret_from_fork)
  * with them due to bugs in both AMD and Intel CPUs.
  */
 
+/** 
+ * system_call - 系统调用入口，处理从用户空间到内核空间的转换
+ */
 ENTRY(system_call)
 	CFI_STARTPROC	simple
 	CFI_SIGNAL_FRAME
@@ -484,11 +488,15 @@ system_call_fastpath:
 	cmpq $__NR_syscall_max,%rax
 	ja badsys
 	movq %r10,%rcx
+	// 将系统调用号作为索引，调用对应的系统调用处理函数
 	call *sys_call_table(,%rax,8)  # XXX:	 rip relative
 	movq %rax,RAX-ARGOFFSET(%rsp)
 /*
  * Syscall return path ending with SYSRET (fast path)
  * Has incomplete stack frame and undefined top of stack.
+ */
+/**
+ * ret_from_sys_call - 系统调用返回路径，处理从内核空间到用户空间的转换
  */
 ret_from_sys_call:
 	movl $_TIF_ALLWORK_MASK,%edi
@@ -544,6 +552,9 @@ sysret_signal:
 	FIXUP_TOP_OF_STACK %r11, -ARGOFFSET
 	jmp int_check_syscall_exit_work
 
+/**
+ * badsys - 处理系统调用号超出范围的情况
+ */
 badsys:
 	movq $-ENOSYS,RAX-ARGOFFSET(%rsp)
 	jmp ret_from_sys_call

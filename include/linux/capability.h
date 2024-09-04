@@ -288,6 +288,7 @@ struct cpu_vfs_cap_data {
 
 /* Allow use of reboot() */
 
+// 允许使用reboot()
 #define CAP_SYS_BOOT         22
 
 /* Allow raising priority and setting priority on other (different

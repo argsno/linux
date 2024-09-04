@@ -240,6 +240,7 @@ extern int __get_user_bad(void) __attribute__((noreturn));
 #define __copy_to_user_inatomic __copy_to_user
 #endif
 
+// 将用户空间的数据拷贝到内核空间
 static inline long copy_from_user(void *to,
 		const void __user * from, unsigned long n)
 {
@@ -250,6 +251,7 @@ static inline long copy_from_user(void *to,
 		return n;
 }
 
+// 将内核空间的数据拷贝到用户空间
 static inline long copy_to_user(void __user *to,
 		const void *from, unsigned long n)
 {

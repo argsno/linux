@@ -300,6 +300,7 @@ error:
  * This sets PF_SUPERPRIV on the task if the capability is available on the
  * assumption that it's about to be used.
  */
+// capable()函数用于判断当前进程是否具有指定的超级权限，如果具有则返回1，否则返回0。
 int capable(int cap)
 {
 	if (unlikely(!cap_valid(cap))) {

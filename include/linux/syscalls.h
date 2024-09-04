@@ -207,6 +207,9 @@ struct perf_event_attr;
 	};							\
 	asmlinkage long sys_##sname(void)
 #else
+// 定义一个没有参数的系统调用，即系统调用的函数原型为long sys_name(void)
+// ##是连接符，将sys_和name连接在一起
+// asmlinkage是一个宏，表示函数的参数和返回值是通过堆栈传递的，而不是通过寄存器传递的
 #define SYSCALL_DEFINE0(name)	   asmlinkage long sys_##name(void)
 #endif
 
