@@ -48,22 +48,25 @@
 /* Number of id_layer structs to leave in free list */
 #define IDR_FREE_MAX MAX_LEVEL + MAX_LEVEL
 
+// idr_layer: idr的节点结构体，每个节点都是一个idr_layer结构体
 struct idr_layer {
-	unsigned long		 bitmap; /* A zero bit means "space here" */
-	struct idr_layer	*ary[1<<IDR_BITS];
-	int			 count;	 /* When zero, we can release it */
-	int			 layer;	 /* distance from leaf */
+	unsigned long		 bitmap; /* A zero bit means "space here" */ // 位图，0表示空闲，1表示已使用
+	struct idr_layer	*ary[1<<IDR_BITS]; // 指向下一层节点的指针数组
+	int			 count;	 /* When zero, we can release it */ // 引用计数
+	int			 layer;	 /* distance from leaf */ // 距离叶子节点的距离
 	struct rcu_head		 rcu_head;
 };
 
+// idr: 用于管理id到指针的映射关系，idr是一个树形结构，每个节点都是一个idr_layer结构体
 struct idr {
-	struct idr_layer *top;
-	struct idr_layer *id_free;
-	int		  layers; /* only valid without concurrent changes */
+	struct idr_layer *top; // 指向根节点
+	struct idr_layer *id_free; // 指向空闲节点链表
+	int		  layers; /* only valid without concurrent changes */ // 当前idr的层数
 	int		  id_free_cnt;
 	spinlock_t	  lock;
 };
 
+// 初始化idr
 #define IDR_INIT(name)						\
 {								\
 	.top		= NULL,					\

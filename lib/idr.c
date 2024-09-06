@@ -117,6 +117,7 @@ static void idr_mark_full(struct idr_layer **pa, int id)
  * If the system is REALLY out of memory this function returns 0,
  * otherwise 1.
  */
+// 为idr分配内存
 int idr_pre_get(struct idr *idp, gfp_t gfp_mask)
 {
 	while (idp->id_free_cnt < IDR_FREE_MAX) {
@@ -589,6 +590,7 @@ EXPORT_SYMBOL(idr_for_each);
  * given id.
  */
 
+// 用于查找下一个id对应的对象
 void *idr_get_next(struct idr *idp, int *nextidp)
 {
 	struct idr_layer *p, *pa[MAX_LEVEL];
@@ -731,6 +733,7 @@ static void free_bitmap(struct ida *ida, struct ida_bitmap *bitmap)
  * If the system is REALLY out of memory this function returns 0,
  * otherwise 1.
  */
+// 用于预分配资源，以便为ida分配空间
 int ida_pre_get(struct ida *ida, gfp_t gfp_mask)
 {
 	/* allocate idr_layers */

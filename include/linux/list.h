@@ -365,6 +365,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @type:	the type of the struct this is embedded in.
  * @member:	the name of the list_struct within the struct.
  */
+// 获取包含list_head的结构体的指针
+// ptr是list_head的指针，type是结构体的类型，member是list_head在结构体中的名字
 #define list_entry(ptr, type, member) \
 	container_of(ptr, type, member)
 

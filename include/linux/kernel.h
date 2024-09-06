@@ -706,6 +706,8 @@ static inline void ftrace_dump(void) { }
  * @member:	the name of the member within the struct.
  *
  */
+// 根据结构体成员的指针获取结构体的首地址
+// 原理：通过结构体成员的指针减去结构体成员在结构体中的偏移量，得到结构体的首地址
 #define container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})

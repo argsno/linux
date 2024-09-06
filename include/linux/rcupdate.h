@@ -408,6 +408,7 @@ static inline notrace void rcu_read_unlock_sched_notrace(void)
  * (currently only the Alpha), and, more importantly, documents
  * exactly which pointers are protected by RCU.
  */
+// 读取RCU保护的指针
 #define rcu_dereference_raw(p)	({ \
 				typeof(p) _________p1 = ACCESS_ONCE(p); \
 				smp_read_barrier_depends(); \
@@ -419,6 +420,8 @@ static inline notrace void rcu_read_unlock_sched_notrace(void)
  *
  * Makes rcu_dereference_check() do the dirty work.
  */
+// 读取RCU保护的指针
+// RCU: Read-Copy Update, 读-复制-更新
 #define rcu_dereference(p) \
 	rcu_dereference_check(p, rcu_read_lock_held())
 
