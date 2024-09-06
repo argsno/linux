@@ -16,15 +16,19 @@
  * using the generic single-entry routines.
  */
 
+// 双向循环链表
 struct list_head {
 	struct list_head *next, *prev;
 };
 
+// 初始化链表节点，使其指向自己（静态初始化）
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 
+// 定义及初始化链表节点
 #define LIST_HEAD(name) \
 	struct list_head name = LIST_HEAD_INIT(name)
 
+// 初始化链表节点（动态初始化）
 static inline void INIT_LIST_HEAD(struct list_head *list)
 {
 	list->next = list;
@@ -38,6 +42,7 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
  * the prev/next entries already!
  */
 #ifndef CONFIG_DEBUG_LIST
+// 将new插入到prev和next之间
 static inline void __list_add(struct list_head *new,
 			      struct list_head *prev,
 			      struct list_head *next)
@@ -61,6 +66,7 @@ extern void __list_add(struct list_head *new,
  * Insert a new entry after the specified head.
  * This is good for implementing stacks.
  */
+// 将new插入到head之后
 static inline void list_add(struct list_head *new, struct list_head *head)
 {
 	__list_add(new, head, head->next);
@@ -75,6 +81,7 @@ static inline void list_add(struct list_head *new, struct list_head *head)
  * Insert a new entry before the specified head.
  * This is useful for implementing queues.
  */
+// 将new插入到head之前
 static inline void list_add_tail(struct list_head *new, struct list_head *head)
 {
 	__list_add(new, head->prev, head);
@@ -87,6 +94,7 @@ static inline void list_add_tail(struct list_head *new, struct list_head *head)
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
  */
+// 删除prev和next之间的元素
 static inline void __list_del(struct list_head * prev, struct list_head * next)
 {
 	next->prev = prev;
@@ -99,11 +107,12 @@ static inline void __list_del(struct list_head * prev, struct list_head * next)
  * Note: list_empty() on entry does not return true after this, the entry is
  * in an undefined state.
  */
-#ifndef CONFIG_DEBUG_LIST
+#ifndef CONFIG_DEBUG_LIST // 非调试模式
+// 删除entry
 static inline void list_del(struct list_head *entry)
 {
 	__list_del(entry->prev, entry->next);
-	entry->next = LIST_POISON1;
+	entry->next = LIST_POISON1; // 用毒药值初始化，防止使用未初始化的链表节点
 	entry->prev = LIST_POISON2;
 }
 #else
@@ -117,6 +126,7 @@ extern void list_del(struct list_head *entry);
  *
  * If @old was empty, it will be overwritten.
  */
+// 用new替换old
 static inline void list_replace(struct list_head *old,
 				struct list_head *new)
 {
@@ -126,6 +136,7 @@ static inline void list_replace(struct list_head *old,
 	new->prev->next = new;
 }
 
+// 用new替换old，并重新初始化old
 static inline void list_replace_init(struct list_head *old,
 					struct list_head *new)
 {
@@ -137,6 +148,7 @@ static inline void list_replace_init(struct list_head *old,
  * list_del_init - deletes entry from list and reinitialize it.
  * @entry: the element to delete from the list.
  */
+// 删除entry，并重新初始化entry
 static inline void list_del_init(struct list_head *entry)
 {
 	__list_del(entry->prev, entry->next);
@@ -148,6 +160,7 @@ static inline void list_del_init(struct list_head *entry)
  * @list: the entry to move
  * @head: the head that will precede our entry
  */
+// 将list从原链表中删除，并添加到head链表之后
 static inline void list_move(struct list_head *list, struct list_head *head)
 {
 	__list_del(list->prev, list->next);
@@ -159,6 +172,7 @@ static inline void list_move(struct list_head *list, struct list_head *head)
  * @list: the entry to move
  * @head: the head that will follow our entry
  */
+// 将list从原链表中删除，并添加到head链表之前
 static inline void list_move_tail(struct list_head *list,
 				  struct list_head *head)
 {
@@ -171,6 +185,7 @@ static inline void list_move_tail(struct list_head *list,
  * @list: the entry to test
  * @head: the head of the list
  */
+// 判断list是否是head的最后一个元素
 static inline int list_is_last(const struct list_head *list,
 				const struct list_head *head)
 {
@@ -181,6 +196,7 @@ static inline int list_is_last(const struct list_head *list,
  * list_empty - tests whether a list is empty
  * @head: the list to test.
  */
+// 判断链表是否为空
 static inline int list_empty(const struct list_head *head)
 {
 	return head->next == head;
@@ -199,6 +215,7 @@ static inline int list_empty(const struct list_head *head)
  * to the list entry is list_del_init(). Eg. it cannot be used
  * if another CPU could re-list_add() it.
  */
+// 判断链表是否为空，并且没有其他CPU正在修改链表
 static inline int list_empty_careful(const struct list_head *head)
 {
 	struct list_head *next = head->next;
@@ -209,6 +226,7 @@ static inline int list_empty_careful(const struct list_head *head)
  * list_rotate_left - rotate the list to the left
  * @head: the head of the list
  */
+// 将链表左旋：将第一个元素移到最后
 static inline void list_rotate_left(struct list_head *head)
 {
 	struct list_head *first;
@@ -223,6 +241,7 @@ static inline void list_rotate_left(struct list_head *head)
  * list_is_singular - tests whether a list has just one entry.
  * @head: the list to test.
  */
+// 判断链表是否只有一个元素
 static inline int list_is_singular(const struct list_head *head)
 {
 	return !list_empty(head) && (head->next == head->prev);
@@ -287,6 +306,7 @@ static inline void __list_splice(const struct list_head *list,
  * @list: the new list to add.
  * @head: the place to add it in the first list.
  */
+// 将list添加到head之后
 static inline void list_splice(const struct list_head *list,
 				struct list_head *head)
 {
