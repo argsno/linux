@@ -150,6 +150,9 @@ static inline int i8259A_irq_real(unsigned int irq)
  * first, _then_ send the EOI, and the order of EOI
  * to the two 8259s is important!
  */
+
+// 8259A: 可编程中断控制器
+// 用于掩盖和确认中断
 static void mask_and_ack_8259A(unsigned int irq)
 {
 	unsigned int irqmask = 1 << irq;
@@ -173,9 +176,9 @@ static void mask_and_ack_8259A(unsigned int irq)
 	 */
 	if (cached_irq_mask & irqmask)
 		goto spurious_8259A_irq;
-	cached_irq_mask |= irqmask;
+	cached_irq_mask |= irqmask; /* mask the IRQ */
 
-handle_real_irq:
+handle_real_irq: // 处理真实中断
 	if (irq & 8) {
 		inb(PIC_SLAVE_IMR);	/* DUMMY - (do we need this?) */
 		outb(cached_slave_mask, PIC_SLAVE_IMR);

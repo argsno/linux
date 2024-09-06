@@ -236,6 +236,7 @@ static inline unsigned char rtc_is_updating(void)
  *	(See ./arch/XXXX/kernel/time.c for the set_rtc_mmss() function.)
  */
 
+// 中断处理函数
 static irqreturn_t rtc_interrupt(int irq, void *dev_id)
 {
 	/*
@@ -245,7 +246,7 @@ static irqreturn_t rtc_interrupt(int irq, void *dev_id)
 	 *	the last read in the remainder of rtc_irq_data.
 	 */
 
-	spin_lock(&rtc_lock);
+	spin_lock(&rtc_lock); // 加锁，保护rtc_irq_data
 	rtc_irq_data += 0x100;
 	rtc_irq_data &= ~0xff;
 	if (is_hpet_enabled()) {
@@ -260,20 +261,20 @@ static irqreturn_t rtc_interrupt(int irq, void *dev_id)
 	}
 
 	if (rtc_status & RTC_TIMER_ON)
-		mod_timer(&rtc_irq_timer, jiffies + HZ/rtc_freq + 2*HZ/100);
+		mod_timer(&rtc_irq_timer, jiffies + HZ/rtc_freq + 2*HZ/100); // 重新设置定时器
 
 	spin_unlock(&rtc_lock);
 
 	/* Now do the rest of the actions */
-	spin_lock(&rtc_task_lock);
+	spin_lock(&rtc_task_lock); // 加锁，保护rtc_callback
 	if (rtc_callback)
-		rtc_callback->func(rtc_callback->private_data);
+		rtc_callback->func(rtc_callback->private_data); // 调用回调函数
 	spin_unlock(&rtc_task_lock);
 	wake_up_interruptible(&rtc_wait);
 
 	kill_fasync(&rtc_async_queue, SIGIO, POLL_IN);
 
-	return IRQ_HANDLED;
+	return IRQ_HANDLED; // 中断处理完成，返回IRQ_HANDLED
 }
 #endif
 
@@ -950,6 +951,7 @@ static void rtc_release_region(void)
 		release_mem_region(RTC_PORT(0), rtc_size);
 }
 
+// 初始化RTC设备
 static int __init rtc_init(void)
 {
 #ifdef CONFIG_PROC_FS
@@ -997,6 +999,7 @@ found:
 	 * XXX Interrupt pin #7 in Espresso is shared between RTC and
 	 * PCI Slot 2 INTA# (and some INTx# in Slot 1).
 	 */
+	// 注册中断处理函数
 	if (request_irq(rtc_irq, rtc_interrupt, IRQF_SHARED, "rtc",
 			(void *)&rtc_port)) {
 		rtc_has_irq = 0;
