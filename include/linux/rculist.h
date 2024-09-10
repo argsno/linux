@@ -207,6 +207,7 @@ static inline void list_splice_init_rcu(struct list_head *list,
  * This primitive may safely run concurrently with the _rcu list-mutation
  * primitives such as list_add_rcu() as long as it's guarded by rcu_read_lock().
  */
+// 从RCU保护的链表中获取包含结构体的指针
 #define list_entry_rcu(ptr, type, member) \
 	container_of(rcu_dereference_raw(ptr), type, member)
 

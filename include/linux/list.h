@@ -18,6 +18,8 @@
 
 // 双向循环链表
 struct list_head {
+	// next 指向链表的下一个节点
+	// prev 指向链表的上一个节点
 	struct list_head *next, *prev;
 };
 

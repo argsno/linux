@@ -2140,9 +2140,11 @@ static inline unsigned long wait_task_inactive(struct task_struct *p,
 }
 #endif
 
+// 获取p指向的下一个进程控制块
 #define next_task(p) \
-	list_entry_rcu((p)->tasks.next, struct task_struct, tasks)
+	list_entry_rcu((p)->tasks.next, struct task_struct, tasks) // 根据链表指针获取对应的进程控制块
 
+// 遍历所有的进程控制块（从init进程开始）
 #define for_each_process(p) \
 	for (p = &init_task ; (p = next_task(p)) != &init_task ; )
 
@@ -2231,12 +2233,14 @@ static inline void unlock_task_sighand(struct task_struct *tsk,
 #define task_thread_info(task)	((struct thread_info *)(task)->stack)
 #define task_stack_page(task)	((task)->stack)
 
+// 初始化新进程p的线程栈
 static inline void setup_thread_stack(struct task_struct *p, struct task_struct *org)
 {
-	*task_thread_info(p) = *task_thread_info(org);
-	task_thread_info(p)->task = p;
+	*task_thread_info(p) = *task_thread_info(org); // 将新进程的thread_info的内容复制到新进程的thread_info
+	task_thread_info(p)->task = p; // 更新新进程的thread_info中的task指向新的进程控制块
 }
 
+// 获取指定进程栈的栈底地址（thread_info位于栈的底部，+1会向上移动sizeof(thread_info)的字节数，可以计算出栈的开始位置）
 static inline unsigned long *end_of_stack(struct task_struct *p)
 {
 	return (unsigned long *)(task_thread_info(p) + 1);

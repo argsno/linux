@@ -237,26 +237,31 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 
 	prepare_to_copy(orig);
 
+	// 分配一个新的task_struct结构体
 	tsk = alloc_task_struct();
 	if (!tsk)
 		return NULL;
 
+	// 分配一个新的thread_info结构体
 	ti = alloc_thread_info(tsk);
 	if (!ti) {
 		free_task_struct(tsk);
 		return NULL;
 	}
 
+	// 调用架构特定的任务结构复制函数
  	err = arch_dup_task_struct(tsk, orig);
 	if (err)
 		goto out;
 
+	// 将thread_info放置于内核栈的栈底
 	tsk->stack = ti;
 
 	err = prop_local_init_single(&tsk->dirties);
 	if (err)
 		goto out;
 
+	// 设置内核栈
 	setup_thread_stack(tsk, orig);
 	clear_user_return_notifier(tsk);
 	stackend = end_of_stack(tsk);
@@ -996,6 +1001,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		goto fork_out;
 
 	retval = -ENOMEM;
+	// 复制当前的进程控制块
 	p = dup_task_struct(current);
 	if (!p)
 		goto fork_out;
@@ -1348,6 +1354,18 @@ struct task_struct * __cpuinit fork_idle(int cpu)
  * It copies the process, and if successful kick-starts
  * it and waits for it to finish using the VM if required.
  */
+/**
+ * 创建一个新进程
+ * 
+ * @clone_flags: 克隆标志，用于指定新进程的各种属性
+ * @stack_start: 新进程的用户栈起始地址
+ * @regs: 新进程的寄存器状态
+ * @stack_size: 新进程的用户栈大小
+ * @parent_tidptr: 父进程中用于存放新进程pid的指针
+ * @child_tidptr: 新进程中用于存放自己pid的指针
+ * 
+ * @return 成功时返回新进程的pid
+ */
 long do_fork(unsigned long clone_flags,
 	      unsigned long stack_start,
 	      struct pt_regs *regs,
@@ -1397,6 +1415,7 @@ long do_fork(unsigned long clone_flags,
 	if (likely(user_mode(regs)))
 		trace = tracehook_prepare_clone(clone_flags);
 
+	// 调用copy_process创建新的进程控制块
 	p = copy_process(clone_flags, stack_start, regs, stack_size,
 			 child_tidptr, NULL, trace);
 	/*
@@ -1408,7 +1427,7 @@ long do_fork(unsigned long clone_flags,
 
 		trace_sched_process_fork(current, p);
 
-		nr = task_pid_vnr(p);
+		nr = task_pid_vnr(p); // 获取新进程的pid
 
 		if (clone_flags & CLONE_PARENT_SETTID)
 			put_user(nr, parent_tidptr);
@@ -1437,7 +1456,7 @@ long do_fork(unsigned long clone_flags,
 			set_tsk_thread_flag(p, TIF_SIGPENDING);
 			__set_task_state(p, TASK_STOPPED);
 		} else {
-			wake_up_new_task(p, clone_flags);
+			wake_up_new_task(p, clone_flags); // 唤醒新进程
 		}
 
 		tracehook_report_clone_complete(trace, regs,
