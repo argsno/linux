@@ -101,11 +101,12 @@ EXPORT_SYMBOL(prepare_to_wait_exclusive);
  * the wait descriptor from the given waitqueue if still
  * queued.
  */
+// 从等待队列中移除wait
 void finish_wait(wait_queue_head_t *q, wait_queue_t *wait)
 {
 	unsigned long flags;
 
-	__set_current_state(TASK_RUNNING);
+	__set_current_state(TASK_RUNNING); // 设置当前线程为TASK_RUNNING
 	/*
 	 * We can check for list emptiness outside the lock
 	 * IFF:
@@ -121,7 +122,7 @@ void finish_wait(wait_queue_head_t *q, wait_queue_t *wait)
 	 */
 	if (!list_empty_careful(&wait->task_list)) {
 		spin_lock_irqsave(&q->lock, flags);
-		list_del_init(&wait->task_list);
+		list_del_init(&wait->task_list); // 从等待队列中移除wait
 		spin_unlock_irqrestore(&q->lock, flags);
 	}
 }

@@ -22,14 +22,15 @@ typedef void (*work_func_t)(struct work_struct *work);
  */
 #define work_data_bits(work) ((unsigned long *)(&(work)->data))
 
+// 表示一个工作项
 struct work_struct {
 	atomic_long_t data;
 #define WORK_STRUCT_PENDING 0		/* T if work item pending execution */
 #define WORK_STRUCT_STATIC  1		/* static initializer (debugobjects) */
 #define WORK_STRUCT_FLAG_MASK (3UL)
 #define WORK_STRUCT_WQ_DATA_MASK (~WORK_STRUCT_FLAG_MASK)
-	struct list_head entry;
-	work_func_t func;
+	struct list_head entry; // 用于将工作项加入到工作队列中（链表）
+	work_func_t func; // 工作项的处理函数
 #ifdef CONFIG_LOCKDEP
 	struct lockdep_map lockdep_map;
 #endif

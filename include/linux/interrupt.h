@@ -319,6 +319,7 @@ static inline int disable_irq_wake(unsigned int irq)
 
 #ifndef __ARCH_SET_SOFTIRQ_PENDING
 #define set_softirq_pending(x) (local_softirq_pending() = (x))
+// or_softirq_pending: 将x与local_softirq_pending()按位或，表示对应的softirq被触发，等待处理
 #define or_softirq_pending(x)  (local_softirq_pending() |= (x))
 #endif
 
@@ -363,8 +364,10 @@ extern char *softirq_to_name[NR_SOFTIRQS];
  * asm/hardirq.h to get better cache usage.  KAO
  */
 
+// softirq_action用于描述一个软中断的处理函数（Softirq Action）
 struct softirq_action
 {
+	// 返回值为void，参数为struct softirq_action *（指向当前softirq_action的指针）的函数指针
 	void	(*action)(struct softirq_action *);
 };
 
@@ -463,9 +466,10 @@ static inline void tasklet_unlock_wait(struct tasklet_struct *t)
 
 extern void __tasklet_schedule(struct tasklet_struct *t);
 
+// tasklet_schedule: 将tasklet加入到当前CPU的tasklet链表中
 static inline void tasklet_schedule(struct tasklet_struct *t)
 {
-	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state))
+	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state)) // 如果tasklet没有被调度（通过校验TASKLET_STATE_SCHED位）
 		__tasklet_schedule(t);
 }
 

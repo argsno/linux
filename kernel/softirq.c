@@ -52,6 +52,7 @@ irq_cpustat_t irq_stat[NR_CPUS] ____cacheline_aligned;
 EXPORT_SYMBOL(irq_stat);
 #endif
 
+// softirq_vec: 用于描述所有软中断的处理函数, NR_SOFTIRQS = 10
 static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
 
 static DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
@@ -195,7 +196,7 @@ asmlinkage void __do_softirq(void)
 	int max_restart = MAX_SOFTIRQ_RESTART;
 	int cpu;
 
-	pending = local_softirq_pending();
+	pending = local_softirq_pending(); // 获取当前CPU的软中断位图
 	account_system_vtime(current);
 
 	__local_bh_disable((unsigned long)__builtin_return_address(0));
@@ -204,19 +205,19 @@ asmlinkage void __do_softirq(void)
 	cpu = smp_processor_id();
 restart:
 	/* Reset the pending bitmask before enabling irqs */
-	set_softirq_pending(0);
+	set_softirq_pending(0); // 清空当前CPU的软中断位图
 
 	local_irq_enable();
 
 	h = softirq_vec;
 
 	do {
-		if (pending & 1) {
+		if (pending & 1) { // 如果当前位图对应的软中断位为1
 			int prev_count = preempt_count();
 			kstat_incr_softirqs_this_cpu(h - softirq_vec);
 
 			trace_softirq_entry(h, softirq_vec);
-			h->action(h);
+			h->action(h); // 调用对应的软中断处理函数
 			trace_softirq_exit(h, softirq_vec);
 			if (unlikely(prev_count != preempt_count())) {
 				printk(KERN_ERR "huh, entered softirq %td %s %p"
@@ -229,9 +230,9 @@ restart:
 
 			rcu_bh_qs(cpu);
 		}
-		h++;
-		pending >>= 1;
-	} while (pending);
+		h++; // 下一个软中断函数
+		pending >>= 1; // 下一个软中断位
+	} while (pending); // 遍历所有的软中断位
 
 	local_irq_disable();
 
@@ -331,6 +332,7 @@ inline void raise_softirq_irqoff(unsigned int nr)
 		wakeup_softirqd();
 }
 
+// raise_softirq: 触发软中断
 void raise_softirq(unsigned int nr)
 {
 	unsigned long flags;
@@ -340,6 +342,7 @@ void raise_softirq(unsigned int nr)
 	local_irq_restore(flags);
 }
 
+// open_softirq: 注册软中断处理函数
 void open_softirq(int nr, void (*action)(struct softirq_action *))
 {
 	softirq_vec[nr].action = action;
@@ -350,13 +353,14 @@ void open_softirq(int nr, void (*action)(struct softirq_action *))
  */
 struct tasklet_head
 {
-	struct tasklet_struct *head;
-	struct tasklet_struct **tail;
+	struct tasklet_struct *head; // 指向tasklet链表的头指针
+	struct tasklet_struct **tail; // 指向tasklet链表尾指针的指针
 };
 
-static DEFINE_PER_CPU(struct tasklet_head, tasklet_vec);
-static DEFINE_PER_CPU(struct tasklet_head, tasklet_hi_vec);
+static DEFINE_PER_CPU(struct tasklet_head, tasklet_vec); // 普通tasklet链表
+static DEFINE_PER_CPU(struct tasklet_head, tasklet_hi_vec); // 高优先级tasklet链表
 
+// __tasklet_schedule: 将tasklet加入到当前CPU的tasklet链表中
 void __tasklet_schedule(struct tasklet_struct *t)
 {
 	unsigned long flags;
@@ -396,15 +400,16 @@ void __tasklet_hi_schedule_first(struct tasklet_struct *t)
 
 EXPORT_SYMBOL(__tasklet_hi_schedule_first);
 
+// tasklet_action: 处理普通tasklet
 static void tasklet_action(struct softirq_action *a)
 {
 	struct tasklet_struct *list;
 
-	local_irq_disable();
-	list = __get_cpu_var(tasklet_vec).head;
+	local_irq_disable(); // 关闭本地中断
+	list = __get_cpu_var(tasklet_vec).head; // 获取当前CPU的tasklet链表
 	__get_cpu_var(tasklet_vec).head = NULL;
 	__get_cpu_var(tasklet_vec).tail = &__get_cpu_var(tasklet_vec).head;
-	local_irq_enable();
+	local_irq_enable(); // 开启本地中断
 
 	while (list) {
 		struct tasklet_struct *t = list;
@@ -412,10 +417,10 @@ static void tasklet_action(struct softirq_action *a)
 		list = list->next;
 
 		if (tasklet_trylock(t)) {
-			if (!atomic_read(&t->count)) {
-				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
+			if (!atomic_read(&t->count)) { // 如果count为0，说明tasklet没有被禁用
+				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state)) // 校验及清除TASKLET_STATE_SCHED位
 					BUG();
-				t->func(t->data);
+				t->func(t->data); // 调用tasklet的处理函数
 				tasklet_unlock(t);
 				continue;
 			}
@@ -423,6 +428,7 @@ static void tasklet_action(struct softirq_action *a)
 		}
 
 		local_irq_disable();
+		// 将tasklet加入到当前CPU的tasklet链表中
 		t->next = NULL;
 		*__get_cpu_var(tasklet_vec).tail = t;
 		__get_cpu_var(tasklet_vec).tail = &(t->next);
@@ -431,6 +437,7 @@ static void tasklet_action(struct softirq_action *a)
 	}
 }
 
+// tasklet_hi_action: 处理高优先级tasklet
 static void tasklet_hi_action(struct softirq_action *a)
 {
 	struct tasklet_struct *list;
@@ -467,6 +474,7 @@ static void tasklet_hi_action(struct softirq_action *a)
 }
 
 
+// tasklet_init: 初始化tasklet
 void tasklet_init(struct tasklet_struct *t,
 		  void (*func)(unsigned long), unsigned long data)
 {
@@ -479,6 +487,7 @@ void tasklet_init(struct tasklet_struct *t,
 
 EXPORT_SYMBOL(tasklet_init);
 
+// tasklet_kill: 杀死tasklet
 void tasklet_kill(struct tasklet_struct *t)
 {
 	if (in_interrupt())

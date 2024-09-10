@@ -40,6 +40,7 @@
  * The per-CPU workqueue (if single thread, we always use the first
  * possible cpu).
  */
+// cpu_workqueue_struct用于描述一个CPU的工作队列
 struct cpu_workqueue_struct {
 
 	spinlock_t lock;
@@ -48,16 +49,17 @@ struct cpu_workqueue_struct {
 	wait_queue_head_t more_work;
 	struct work_struct *current_work;
 
-	struct workqueue_struct *wq;
-	struct task_struct *thread;
+	struct workqueue_struct *wq; // 对应的工作队列
+	struct task_struct *thread; // 对应的内核线程
 } ____cacheline_aligned;
 
 /*
  * The externally visible workqueue abstraction is an array of
  * per-CPU workqueues:
  */
+// workqueue_struct用于描述一个工作队列，每种工作队列对应一个workqueue_struct
 struct workqueue_struct {
-	struct cpu_workqueue_struct *cpu_wq;
+	struct cpu_workqueue_struct *cpu_wq; // 每个CPU对应一个cpu_workqueue_struct，用于描述一个CPU的工作队列
 	struct list_head list;
 	const char *name;
 	int singlethread;
@@ -372,13 +374,14 @@ int queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
 }
 EXPORT_SYMBOL_GPL(queue_delayed_work_on);
 
+// 处理工作队列中的工作
 static void run_workqueue(struct cpu_workqueue_struct *cwq)
 {
 	spin_lock_irq(&cwq->lock);
 	while (!list_empty(&cwq->worklist)) {
 		struct work_struct *work = list_entry(cwq->worklist.next,
-						struct work_struct, entry);
-		work_func_t f = work->func;
+						struct work_struct, entry); // 获取工作队列中的第一个工作项
+		work_func_t f = work->func; // 获取工作项的处理函数
 #ifdef CONFIG_LOCKDEP
 		/*
 		 * It is permissible to free the struct work_struct
@@ -400,7 +403,7 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
 		work_clear_pending(work);
 		lock_map_acquire(&cwq->wq->lockdep_map);
 		lock_map_acquire(&lockdep_map);
-		f(work);
+		f(work); // 调用工作项的处理函数
 		lock_map_release(&lockdep_map);
 		lock_map_release(&cwq->wq->lockdep_map);
 
@@ -421,28 +424,29 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
 	spin_unlock_irq(&cwq->lock);
 }
 
+// 内核线程的入口函数
 static int worker_thread(void *__cwq)
 {
 	struct cpu_workqueue_struct *cwq = __cwq;
-	DEFINE_WAIT(wait);
+	DEFINE_WAIT(wait); // 定义等待队列
 
 	if (cwq->wq->freezeable)
 		set_freezable();
 
 	for (;;) {
-		prepare_to_wait(&cwq->more_work, &wait, TASK_INTERRUPTIBLE);
+		prepare_to_wait(&cwq->more_work, &wait, TASK_INTERRUPTIBLE); // 等待工作队列中有工作（将当前线程标记为TASK_INTERRUPTIBLE，并加入等待队列）
 		if (!freezing(current) &&
 		    !kthread_should_stop() &&
-		    list_empty(&cwq->worklist))
+		    list_empty(&cwq->worklist)) // 如果工作队列中没有工作，就休眠
 			schedule();
-		finish_wait(&cwq->more_work, &wait);
+		finish_wait(&cwq->more_work, &wait); // 将当前线程标记为TASK_RUNNING，并从等待队列中移除
 
 		try_to_freeze();
 
 		if (kthread_should_stop())
 			break;
 
-		run_workqueue(cwq);
+		run_workqueue(cwq); // 处理工作队列中的工作
 	}
 
 	return 0;
