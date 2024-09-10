@@ -27,22 +27,29 @@ struct exec_domain;
 struct thread_info {
 	// task: 指向task_struct结构体，表示线程对应的进程
 	struct task_struct	*task;		/* main task structure */
+	// exec_domain: 指向exec_domain结构体，表示线程的执行域（不同的执行域有不同的系统调用表和信号处理方式）
 	struct exec_domain	*exec_domain;	/* execution domain */
+	// flags: 表示线程的低级标志，用于表示线程的各种状态，控制线程的行为
 	__u32			flags;		/* low level flags */
+	// status: 表示线程的同步状态，通常用于线程间的同步和通信
 	__u32			status;		/* thread synchronous flags */
+	// cpu: 当前线程运行的CPU
 	__u32			cpu;		/* current CPU */
+	// preempt_count: 抢占计数器，用于表示线程是否可以被抢占（0表示可以被抢占，>0表示不可被抢占）
 	int			preempt_count;	/* 0 => preemptable,
 						   <0 => BUG */
+	// addr_limit: 表示线程的地址空间，用于控制线程可以访问的内存地址范围
 	mm_segment_t		addr_limit;
+	// restart_block: 表示线程的重启系统调用块，用于保存系统调用的相关信息（当系统调用被中断时，可以通过该块恢复系统调用）
 	struct restart_block    restart_block;
-	void __user		*sysenter_return;
+	void __user		*sysenter_return; // 保存sysenter返回地址
 #ifdef CONFIG_X86_32
 	unsigned long           previous_esp;   /* ESP of the previous stack in
 						   case of nested (IRQ) stacks
 						*/
 	__u8			supervisor_stack[0];
 #endif
-	int			uaccess_err;
+	int			uaccess_err; // 用户空间访问错误
 };
 
 #define INIT_THREAD_INFO(tsk)			\

@@ -1167,18 +1167,23 @@ struct sched_rt_entity {
 
 struct rcu_node;
 
+// task_struct是进程控制块PCB(Process Control Block)的数据结构
 struct task_struct {
+	// 进程状态
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
-	void *stack;
-	atomic_t usage;
+	void *stack; // 指向进程内核栈的指针
+	atomic_t usage; // 引用计数，表示该结构体被引用的次数
+	// 进程标志位，用于表示进程的各种状态和属性
 	unsigned int flags;	/* per process flags, defined below */
+	// 用于进程跟踪（ptrace）相关的标志
 	unsigned int ptrace;
 
+	// 大内核锁（Big Kernel Lock）的锁深度
 	int lock_depth;		/* BKL lock depth */
 
 #ifdef CONFIG_SMP
 #ifdef __ARCH_WANT_UNLOCKED_CTXSW
-	int oncpu;
+	int oncpu; // 在多处理器系统（SMP）中，表示进程正在哪个CPU上运行
 #endif
 #endif
 
@@ -1220,7 +1225,7 @@ struct task_struct {
 	struct sched_info sched_info;
 #endif
 
-	struct list_head tasks;
+	struct list_head tasks; // 用于将进程添加到进程链表中
 	struct plist_node pushable_tasks;
 
 	struct mm_struct *mm, *active_mm;
@@ -1233,17 +1238,19 @@ struct task_struct {
 	int pdeath_signal;  /*  The signal sent when the parent dies  */
 	/* ??? */
 	unsigned int personality;
-	unsigned did_exec:1;
+	// 标志位，表示进程是否执行过execve系统调用
+	unsigned did_exec:1; 
+	// 标志位，表示进程是否正在执行execve系统调用
 	unsigned in_execve:1;	/* Tell the LSMs that the process is doing an
 				 * execve */
-	unsigned in_iowait:1;
-
+	// 标志位，表示进程是否在I/O等待中
+	unsigned in_iowait:1; 
 
 	/* Revert to default priority/policy when forking */
-	unsigned sched_reset_on_fork:1;
+	unsigned sched_reset_on_fork:1; // 标志位，表示进程fork时是否重置调度优先级和策略
 
-	pid_t pid;
-	pid_t tgid; // 线程组ID
+	pid_t pid; // 进程的唯一标识符（PID）
+	pid_t tgid; // 线程组ID，对于线程组中的所有线程，tgid相同，等于线程组的领头进程的PID
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 	/* Canary value for the -fstack-protector gcc feature */
@@ -1256,12 +1263,12 @@ struct task_struct {
 	 * p->real_parent->pid)
 	 */
 	struct task_struct *real_parent; /* real parent process */
-	struct task_struct *parent; /* recipient of SIGCHLD, wait4() reports */
+	struct task_struct *parent; /* recipient of SIGCHLD, wait4() reports */ // 父进程
 	/*
 	 * children/sibling forms the list of my natural children
 	 */
-	struct list_head children;	/* list of my children */
-	struct list_head sibling;	/* linkage in my parent's children list */
+	struct list_head children;	/* list of my children */ // 子进程链表
+	struct list_head sibling;	/* linkage in my parent's children list */ // 兄弟进程链表（在父进程的子进程链表中的链接）
 	struct task_struct *group_leader;	/* threadgroup leader */
 
 	/*

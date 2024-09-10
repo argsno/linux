@@ -42,23 +42,34 @@ typedef struct xtregs_coprocessor {
 
 #endif
 
+// thread_info用于存储线程频繁访问的数据，如task_struct、exec_domain、flags、status、cpu等
 struct thread_info {
+	// task指向task_struct结构体，表示线程对应的进程
 	struct task_struct	*task;		/* main task structure */
+	// exec_domain指向exec_domain结构体，表示线程的执行域（不同的执行域有不同的系统调用表和信号处理方式）
 	struct exec_domain	*exec_domain;	/* execution domain */
+	// flags表示线程的低级标志，用于表示线程的各种状态，控制线程的行为
 	unsigned long		flags;		/* low level flags */
+	// status表示线程的同步状态，通常用于线程间的同步和通信
 	unsigned long		status;		/* thread-synchronous flags */
+	// 当前线程运行的CPU
 	__u32			cpu;		/* current CPU */
+	// 抢占计数器，用于表示线程是否可以被抢占（0表示可以被抢占，>0表示不可被抢占）
 	__s32			preempt_count;	/* 0 => preemptable,< 0 => BUG*/
 
+	// addr_limit表示线程的地址空间，用于控制线程可以访问的内存地址范围
 	mm_segment_t		addr_limit;	/* thread address space */
+	// restart_block表示线程的重启系统调用块，用于保存系统调用的相关信息（当系统调用被中断时，可以通过该块恢复系统调用）
 	struct restart_block    restart_block;
 
+	// cpenable表示协处理器使能标志，用于表示协处理器是否被启用
 	unsigned long		cpenable;
 
 	/* Allocate storage for extra user states and coprocessor states. */
 #if XTENSA_HAVE_COPROCESSORS
 	xtregs_coprocessor_t	xtregs_cp;
 #endif
+	// xtregs_user表示用户态寄存器，用于保存用户态寄存器的值
 	xtregs_user_t		xtregs_user;
 };
 
