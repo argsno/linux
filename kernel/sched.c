@@ -86,8 +86,11 @@
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
  * and back.
  */
+// nice值转换为优先级
 #define NICE_TO_PRIO(nice)	(MAX_RT_PRIO + (nice) + 20)
+// 优先级转换为nice值
 #define PRIO_TO_NICE(prio)	((prio) - MAX_RT_PRIO - 20)
+// 任务的nice值（取的static_prio）
 #define TASK_NICE(p)		PRIO_TO_NICE((p)->static_prio)
 
 /*
@@ -120,6 +123,7 @@
  */
 #define RUNTIME_INF	((u64)~0ULL)
 
+// 判断是否是实时任务调度策略
 static inline int rt_policy(int policy)
 {
 	if (unlikely(policy == SCHED_FIFO || policy == SCHED_RR))
@@ -1851,7 +1855,7 @@ static void dec_nr_running(struct rq *rq)
 
 static void set_load_weight(struct task_struct *p)
 {
-	if (task_has_rt_policy(p)) {
+	if (task_has_rt_policy(p)) { // 如果是实时进程，设置为最大权重
 		p->se.load.weight = prio_to_weight[0] * 2;
 		p->se.load.inv_weight = prio_to_wmult[0] >> 1;
 		return;
@@ -1860,7 +1864,7 @@ static void set_load_weight(struct task_struct *p)
 	/*
 	 * SCHED_IDLE tasks get minimal weight:
 	 */
-	if (p->policy == SCHED_IDLE) {
+	if (p->policy == SCHED_IDLE) { // 如果是空闲进程，设置为最小权重
 		p->se.load.weight = WEIGHT_IDLEPRIO;
 		p->se.load.inv_weight = WMULT_IDLEPRIO;
 		return;
@@ -1939,6 +1943,7 @@ static void deactivate_task(struct rq *rq, struct task_struct *p, int sleep)
 /*
  * __normal_prio - return the priority that is based on the static prio
  */
+// 返回静态优先级
 static inline int __normal_prio(struct task_struct *p)
 {
 	return p->static_prio;
@@ -1951,14 +1956,15 @@ static inline int __normal_prio(struct task_struct *p)
  * setprio syscalls, and whenever the interactivity
  * estimator recalculates.
  */
+// 计算普通优先级
 static inline int normal_prio(struct task_struct *p)
 {
 	int prio;
 
-	if (task_has_rt_policy(p))
-		prio = MAX_RT_PRIO-1 - p->rt_priority;
+	if (task_has_rt_policy(p)) // 如果是实时进程
+		prio = MAX_RT_PRIO-1 - p->rt_priority; // 计算规则为 99 - rt_priority
 	else
-		prio = __normal_prio(p);
+		prio = __normal_prio(p); // 否则直接返回静态优先级
 	return prio;
 }
 
@@ -1969,9 +1975,10 @@ static inline int normal_prio(struct task_struct *p)
  * interactivity modifiers. Will be RT if the task got
  * RT-boosted. If not then it returns p->normal_prio.
  */
+// 计算有效优先级
 static int effective_prio(struct task_struct *p)
 {
-	p->normal_prio = normal_prio(p);
+	p->normal_prio = normal_prio(p); // 计算 normal_prio 的值
 	/*
 	 * If we are RT tasks or we were boosted to RT priority,
 	 * keep the priority unchanged. Otherwise, update priority
@@ -2624,7 +2631,7 @@ void sched_fork(struct task_struct *p, int clone_flags)
 	/*
 	 * Make sure we do not leak PI boosting priority to the child.
 	 */
-	p->prio = current->normal_prio;
+	p->prio = current->normal_prio; // 继承父进程的优先级
 
 	if (!rt_prio(p->prio))
 		p->sched_class = &fair_sched_class;
@@ -4306,6 +4313,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 
 #endif
 
+// 设置任务的nice值
 void set_user_nice(struct task_struct *p, long nice)
 {
 	int old_prio, delta, on_rq;
@@ -4466,16 +4474,16 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 {
 	BUG_ON(p->se.on_rq);
 
-	p->policy = policy;
-	p->rt_priority = prio;
-	p->normal_prio = normal_prio(p);
+	p->policy = policy; // 设置任务的调度策略
+	p->rt_priority = prio; // 设置任务的优先级
+	p->normal_prio = normal_prio(p); // 设置任务的普通优先级
 	/* we are holding p->pi_lock already */
-	p->prio = rt_mutex_getprio(p);
+	p->prio = rt_mutex_getprio(p); // 获取任务的优先级
 	if (rt_prio(p->prio))
-		p->sched_class = &rt_sched_class;
+		p->sched_class = &rt_sched_class; // 设置实时任务的调度类
 	else
-		p->sched_class = &fair_sched_class;
-	set_load_weight(p);
+		p->sched_class = &fair_sched_class; // 设置普通任务的调度类
+	set_load_weight(p); // 设置任务的权重
 }
 
 /*

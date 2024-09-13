@@ -1087,6 +1087,7 @@ struct load_weight {
  *     4 se->sleep_start
  *     6 se->load.weight
  */
+// sched_entity是调度实体的数据结构
 struct sched_entity {
 	struct load_weight	load;		/* for load-balancing */
 	struct rb_node		run_node;
@@ -1095,7 +1096,7 @@ struct sched_entity {
 
 	u64			exec_start;
 	u64			sum_exec_runtime;
-	u64			vruntime;
+	u64			vruntime; // 虚拟运行时间，用于CFS调度算法
 	u64			prev_sum_exec_runtime;
 
 	u64			last_wakeup;
@@ -1187,10 +1188,13 @@ struct task_struct {
 #endif
 #endif
 
-	int prio, static_prio, normal_prio;
-	unsigned int rt_priority;
+	// prio: 进程的静态优先级，取值范围为0~99(Real-Time)或100~139(Normal)
+	// static_prio: 进程的静态优先级，取值为prio-MAX_RT_PRIO(100)
+	// normal_prio: 进程的动态优先级
+	int prio, static_prio, normal_prio; 
+	unsigned int rt_priority; // 实时进程的优先级，取值为0(Normal)或1~99(Real-Time)
 	const struct sched_class *sched_class;
-	struct sched_entity se;
+	struct sched_entity se; // 调度实体
 	struct sched_rt_entity rt;
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
@@ -1211,7 +1215,7 @@ struct task_struct {
 	unsigned int btrace_seq;
 #endif
 
-	unsigned int policy;
+	unsigned int policy; // 进程的调度策略，取值为SCHED_NORMAL(Normal)、SCHED_FIFO(Real-Time)、SCHED_RR(Real-Time)、SCHED_BATCH、SCHED_IDLE
 	cpumask_t cpus_allowed;
 
 #ifdef CONFIG_TREE_PREEMPT_RCU
@@ -1529,13 +1533,24 @@ struct task_struct {
  * priority to a value higher than any user task. Note:
  * MAX_RT_PRIO must not be smaller than MAX_USER_RT_PRIO.
  */
+/**
+ * 进程的优先级范围是 0 到 MAX_PRIO-1（即0 ～ 139），
+ * 有效的实时（RT）优先级范围是 0 到 MAX_RT_PRIO-1（即0 ～ 99），
+ * 而 SCHED_NORMAL/SCHED_BATCH 任务的优先级范围是 MAX_RT_PRIO 到 MAX_PRIO-1（即100 ～ 139）。
+ * 优先级的值是反向的：较低的 p->prio 值意味着较高的优先级。
+ * 
+ * MAX_USER_RT_PRIO 值允许实际的最大实时优先级与向用户空间导出的值分开。
+ * 这允许内核线程将其优先级设置为高于任何用户任务的值。
+ * 注意：MAX_RT_PRIO 不能小于 MAX_USER_RT_PRIO。
+ */
 
 #define MAX_USER_RT_PRIO	100
 #define MAX_RT_PRIO		MAX_USER_RT_PRIO
 
 #define MAX_PRIO		(MAX_RT_PRIO + 40)
-#define DEFAULT_PRIO		(MAX_RT_PRIO + 20)
+#define DEFAULT_PRIO		(MAX_RT_PRIO + 20) // 默认优先级，对应 nice 值为 0 的静态优先级
 
+// 通过优先级判断进程是否是实时进程
 static inline int rt_prio(int prio)
 {
 	if (unlikely(prio < MAX_RT_PRIO))
