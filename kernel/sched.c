@@ -495,17 +495,18 @@ static struct root_domain def_root_domain;
  * (such as the load balancing or the thread migration code), lock
  * acquire operations must be ordered by ascending &runqueue.
  */
+// rq: 运行队列（每个CPU都有一个运行队列）
 struct rq {
 	/* runqueue lock: */
-	raw_spinlock_t lock;
+	raw_spinlock_t lock; // 运行队列的自旋锁
 
 	/*
 	 * nr_running and cpu_load should be in the same cacheline because
 	 * remote CPUs use both these fields when doing load calculation.
 	 */
-	unsigned long nr_running;
+	unsigned long nr_running; // 运行队列中的任务数
 	#define CPU_LOAD_IDX_MAX 5
-	unsigned long cpu_load[CPU_LOAD_IDX_MAX];
+	unsigned long cpu_load[CPU_LOAD_IDX_MAX]; // CPU负载
 #ifdef CONFIG_NO_HZ
 	unsigned char in_nohz_recently;
 #endif
@@ -3670,6 +3671,7 @@ static void put_prev_task(struct rq *rq, struct task_struct *prev)
 /*
  * Pick up the highest-prio task:
  */
+// 从运行队列中选择下一个要运行的最高优先级任务
 static inline struct task_struct *
 pick_next_task(struct rq *rq)
 {
@@ -3680,15 +3682,15 @@ pick_next_task(struct rq *rq)
 	 * Optimization: we know that if all tasks are in
 	 * the fair class we can call that function directly:
 	 */
-	if (likely(rq->nr_running == rq->cfs.nr_running)) {
-		p = fair_sched_class.pick_next_task(rq);
+	if (likely(rq->nr_running == rq->cfs.nr_running)) { // 如果运行队列中的任务都是fair_sched_class类型的
+		p = fair_sched_class.pick_next_task(rq); // 直接调用fair_sched_class的pick_next_task函数
 		if (likely(p))
 			return p;
 	}
 
-	class = sched_class_highest;
+	class = sched_class_highest; // 从最高优先级的调度类开始
 	for ( ; ; ) {
-		p = class->pick_next_task(rq);
+		p = class->pick_next_task(rq); // 从当前调度类中选择下一个要运行的任务
 		if (p)
 			return p;
 		/*
@@ -3702,6 +3704,9 @@ pick_next_task(struct rq *rq)
 /*
  * schedule() is the main scheduler function.
  */
+// 调度器的主函数
+// 负责在当前任务需要被调度时，选择下一个要运行的任务，并进行上下文切换
+// asmlinkage表示该函数的参数和返回值都是通过堆栈传递的，而不是通过寄存器传递
 asmlinkage void __sched schedule(void)
 {
 	struct task_struct *prev, *next;
@@ -3710,14 +3715,14 @@ asmlinkage void __sched schedule(void)
 	int cpu;
 
 need_resched:
-	preempt_disable();
-	cpu = smp_processor_id();
-	rq = cpu_rq(cpu);
+	preempt_disable(); // 禁止内核抢占
+	cpu = smp_processor_id(); // 获取当前CPU的ID
+	rq = cpu_rq(cpu); // 获取当前CPU的运行队列
 	rcu_sched_qs(cpu);
-	prev = rq->curr;
+	prev = rq->curr; // 获取当前正在运行的任务
 	switch_count = &prev->nivcsw;
 
-	release_kernel_lock(prev);
+	release_kernel_lock(prev); // 释放内核锁
 need_resched_nonpreemptible:
 
 	schedule_debug(prev);
@@ -3725,9 +3730,9 @@ need_resched_nonpreemptible:
 	if (sched_feat(HRTICK))
 		hrtick_clear(rq);
 
-	raw_spin_lock_irq(&rq->lock);
-	update_rq_clock(rq);
-	clear_tsk_need_resched(prev);
+	raw_spin_lock_irq(&rq->lock); // 获取运行队列的锁，并禁用中断
+	update_rq_clock(rq); // 更新运行队列的时钟
+	clear_tsk_need_resched(prev); // 清除当前任务的need_resched标志
 
 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
 		if (unlikely(signal_pending_state(prev->state, prev)))
@@ -3737,22 +3742,23 @@ need_resched_nonpreemptible:
 		switch_count = &prev->nvcsw;
 	}
 
-	pre_schedule(rq, prev);
+	pre_schedule(rq, prev); // 调用调度前处理函数
 
-	if (unlikely(!rq->nr_running))
-		idle_balance(cpu, rq);
+	if (unlikely(!rq->nr_running)) // 如果运行队列中没有任务
+		idle_balance(cpu, rq); // 进行负载均衡（将其他CPU上的任务迁移到当前CPU上）
 
-	put_prev_task(rq, prev);
-	next = pick_next_task(rq);
+	put_prev_task(rq, prev); // 将当前任务放回运行队列
+	next = pick_next_task(rq); // 从运行队列中选择下一个要运行的任务
 
-	if (likely(prev != next)) {
-		sched_info_switch(prev, next);
+	if (likely(prev != next)) { // 如果当前任务和下一个任务不是同一个任务
+		sched_info_switch(prev, next); // 更新调度信息
 		perf_event_task_sched_out(prev, next);
 
-		rq->nr_switches++;
-		rq->curr = next;
-		++*switch_count;
+		rq->nr_switches++; // 增加当前运行队列的切换计数器
+		rq->curr = next; // 更新当前任务为下一个任务
+		++*switch_count; // 增加任务切换计数器
 
+		// 进行上下文切换，并释放运行队列锁
 		context_switch(rq, prev, next); /* unlocks the rq */
 		/*
 		 * the context switch might have flipped the stack from under
@@ -3763,7 +3769,7 @@ need_resched_nonpreemptible:
 	} else
 		raw_spin_unlock_irq(&rq->lock);
 
-	post_schedule(rq);
+	post_schedule(rq); // 调度后处理函数
 
 	if (unlikely(reacquire_kernel_lock(current) < 0)) {
 		prev = rq->curr;
@@ -3771,8 +3777,8 @@ need_resched_nonpreemptible:
 		goto need_resched_nonpreemptible;
 	}
 
-	preempt_enable_no_resched();
-	if (need_resched())
+	preempt_enable_no_resched(); // 启用抢占
+	if (need_resched()) // 如果还需要调度，则跳转到调度循环开始
 		goto need_resched;
 }
 EXPORT_SYMBOL(schedule);
@@ -4970,16 +4976,18 @@ SYSCALL_DEFINE0(sched_yield)
 	return 0;
 }
 
+// 检查是否需要重新调度
 static inline int should_resched(void)
 {
-	return need_resched() && !(preempt_count() & PREEMPT_ACTIVE);
+	// preempt_count() 表示是否允许抢占，如果允许抢占则返回 0
+	return need_resched() && !(preempt_count() & PREEMPT_ACTIVE); // 需要重新调度并且还没有被抢占
 }
 
 static void __cond_resched(void)
 {
-	add_preempt_count(PREEMPT_ACTIVE);
+	add_preempt_count(PREEMPT_ACTIVE); // 增加抢占计数，表示不能被抢占
 	schedule();
-	sub_preempt_count(PREEMPT_ACTIVE);
+	sub_preempt_count(PREEMPT_ACTIVE); // 减少抢占计数，表示可以被抢占
 }
 
 int __sched _cond_resched(void)

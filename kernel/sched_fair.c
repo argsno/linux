@@ -374,6 +374,7 @@ static void __dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	rb_erase(&se->run_node, &cfs_rq->tasks_timeline);
 }
 
+// 选择下一个调度实体
 static struct sched_entity *__pick_next_entity(struct cfs_rq *cfs_rq)
 {
 	struct rb_node *left = cfs_rq->rb_leftmost;
@@ -499,22 +500,30 @@ static u64 sched_vslice(struct cfs_rq *cfs_rq, struct sched_entity *se)
  * Update the current task's runtime statistics. Skip current tasks that
  * are not in our scheduling class.
  */
+// 更新当前任务的运行时间统计信息
 static inline void
 __update_curr(struct cfs_rq *cfs_rq, struct sched_entity *curr,
 	      unsigned long delta_exec)
 {
 	unsigned long delta_exec_weighted;
 
+	// 更新当前任务的最大执行时间
 	schedstat_set(curr->exec_max, max((u64)delta_exec, curr->exec_max));
 
+	// 更新当前任务的总执行时间
 	curr->sum_exec_runtime += delta_exec;
+	// 将当前任务的执行时间累加入到运行队列的总执行时间中
 	schedstat_add(cfs_rq, exec_clock, delta_exec);
+	// 计算当前任务的加权执行时间
 	delta_exec_weighted = calc_delta_fair(delta_exec, curr);
 
+	// 更新当前任务的虚拟运行时间
 	curr->vruntime += delta_exec_weighted;
+	// 更新 CFS 运行队列的最新虚拟运行时间
 	update_min_vruntime(cfs_rq);
 }
 
+// 更新当前任务的运行时间统计信息
 static void update_curr(struct cfs_rq *cfs_rq)
 {
 	struct sched_entity *curr = cfs_rq->curr;
@@ -529,11 +538,12 @@ static void update_curr(struct cfs_rq *cfs_rq)
 	 * since the last time we changed load (this cannot
 	 * overflow on 32 bits):
 	 */
+	// 计算当前任务的运行时间，即当前时间减去任务开始执行的时间
 	delta_exec = (unsigned long)(now - curr->exec_start);
 	if (!delta_exec)
 		return;
 
-	__update_curr(cfs_rq, curr, delta_exec);
+	__update_curr(cfs_rq, curr, delta_exec); // 更新当前任务的运行时间统计信息
 	curr->exec_start = now;
 
 	if (entity_is_task(curr)) {
@@ -880,9 +890,9 @@ check_preempt_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	if (delta_exec < sysctl_sched_min_granularity)
 		return;
 
-	if (cfs_rq->nr_running > 1) {
-		struct sched_entity *se = __pick_next_entity(cfs_rq);
-		s64 delta = curr->vruntime - se->vruntime;
+	if (cfs_rq->nr_running > 1) { // 运行队列中有多个任务
+		struct sched_entity *se = __pick_next_entity(cfs_rq); // 选择下一个调度实体
+		s64 delta = curr->vruntime - se->vruntime; // 计算当前任务和下一个任务的虚拟运行时间差
 
 		if (delta > ideal_runtime)
 			resched_task(rq_of(cfs_rq)->curr);
@@ -965,8 +975,10 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 	/*
 	 * Update run-time statistics of the 'current'.
 	 */
+	// 更新当前任务的运行时间统计信息
 	update_curr(cfs_rq);
 
+// 使用高精度定时器（High Resolution Timer）调度
 #ifdef CONFIG_SCHED_HRTICK
 	/*
 	 * queued ticks are scheduled to match the slice, so don't bother
@@ -984,6 +996,9 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 		return;
 #endif
 
+	// 检查是否需要抢占当前任务
+	// nr_running > 1 表示有运行队列有多个任务
+	// WAKEUP_PREEMPT 用于控制在任务唤醒时是否进行抢占，不支持唤醒抢占时才进行抢占
 	if (cfs_rq->nr_running > 1 || !sched_feat(WAKEUP_PREEMPT))
 		check_preempt_tick(cfs_rq, curr);
 }

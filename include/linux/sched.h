@@ -1089,14 +1089,22 @@ struct load_weight {
  */
 // sched_entity是调度实体的数据结构
 struct sched_entity {
+	// 用于负载均衡，确保任务在可用的 CPU 之间均匀分布，防止某个 CPU 成为瓶颈
 	struct load_weight	load;		/* for load-balancing */
+	// 用于红黑树的节点
 	struct rb_node		run_node;
+	// 双链表节点，用于将调度实体添加到运行队列或等待队列
 	struct list_head	group_node;
+	// 表示调度实体是否在运行队列(run queue)上
 	unsigned int		on_rq;
 
+	// 进程开始运行的时间
 	u64			exec_start;
+	// 进程运行总时间
 	u64			sum_exec_runtime;
-	u64			vruntime; // 虚拟运行时间，用于CFS调度算法
+	// 虚拟运行时间，用于CFS调度算法
+	u64			vruntime;
+	// 上个调度周期中进程运行的总时间
 	u64			prev_sum_exec_runtime;
 
 	u64			last_wakeup;
@@ -2373,6 +2381,7 @@ static inline int need_resched(void)
  */
 extern int _cond_resched(void);
 
+// 用于在内核代码中检查是否需要进行调度，并在需要时主动让出CPU
 #define cond_resched() ({			\
 	__might_sleep(__FILE__, __LINE__, 0);	\
 	_cond_resched();			\
