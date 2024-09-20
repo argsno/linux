@@ -1348,9 +1348,9 @@ struct task_struct {
 /* filesystem information */
 	struct fs_struct *fs;
 /* open file information */
-	struct files_struct *files;
+	struct files_struct *files; // 进程打开的文件描述符表
 /* namespaces */
-	struct nsproxy *nsproxy;
+	struct nsproxy *nsproxy; // 进程的命名空间
 /* signal handlers */
 	struct signal_struct *signal;
 	struct sighand_struct *sighand;

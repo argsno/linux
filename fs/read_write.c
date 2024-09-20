@@ -388,6 +388,7 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 	return ret;
 }
 
+// sys_write系统调用：将buf（用户空间缓冲区）中的count个字节写入文件描述符fd所指向的文件中
 SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 		size_t, count)
 {
@@ -395,12 +396,12 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 	ssize_t ret = -EBADF;
 	int fput_needed;
 
-	file = fget_light(fd, &fput_needed);
+	file = fget_light(fd, &fput_needed); // 获取文件描述符fd所指向的文件结构指针file
 	if (file) {
-		loff_t pos = file_pos_read(file);
-		ret = vfs_write(file, buf, count, &pos);
-		file_pos_write(file, pos);
-		fput_light(file, fput_needed);
+		loff_t pos = file_pos_read(file); // 读取文件的当前偏移量pos
+		ret = vfs_write(file, buf, count, &pos); // 调用虚拟文件系统（VFS）层的vfs_write函数，将buf中的count个字节写入文件中，并更新文件的当前偏移量pos
+		file_pos_write(file, pos); // 更新文件结构指针file的当前偏移量
+		fput_light(file, fput_needed); // 根据fput_needed的值，减少文件结构指针file的引用计数
 	}
 
 	return ret;

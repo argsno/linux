@@ -2522,6 +2522,7 @@ out:
  * It may be assumed that this function implies a write memory barrier before
  * changing the task state if and only if any tasks are woken up.
  */
+// 唤醒一个进程
 int wake_up_process(struct task_struct *p)
 {
 	return try_to_wake_up(p, TASK_ALL, 0);
@@ -3945,6 +3946,7 @@ static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
  * It may be assumed that this function implies a write memory barrier before
  * changing the task state if and only if any tasks are woken up.
  */
+// 唤醒等待队列中的线程
 void __wake_up(wait_queue_head_t *q, unsigned int mode,
 			int nr_exclusive, void *key)
 {

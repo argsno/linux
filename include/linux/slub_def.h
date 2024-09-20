@@ -235,28 +235,30 @@ static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
 	return ret;
 }
 
+// kmalloc用于分配指定大小的内存快，返回分配的内存块的首地址
+// __always_inline属性确保该函数在编译时被内联展开
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	void *ret;
 
-	if (__builtin_constant_p(size)) {
+	if (__builtin_constant_p(size)) { // 如果size是编译时常量
 		if (size > SLUB_MAX_SIZE)
-			return kmalloc_large(size, flags);
+			return kmalloc_large(size, flags); // 如果size大于SLUB_MAX_SIZE，则调用kmalloc_large函数处理大块内存分配
 
-		if (!(flags & SLUB_DMA)) {
-			struct kmem_cache *s = kmalloc_slab(size);
+		if (!(flags & SLUB_DMA)) { // 非DMA内存分配
+			struct kmem_cache *s = kmalloc_slab(size); // 获取指定大小的slab缓存
 
 			if (!s)
 				return ZERO_SIZE_PTR;
 
-			ret = kmem_cache_alloc_notrace(s, flags);
+			ret = kmem_cache_alloc_notrace(s, flags); // 从slab缓存中分配内存
 
-			trace_kmalloc(_THIS_IP_, ret, size, s->size, flags);
+			trace_kmalloc(_THIS_IP_, ret, size, s->size, flags); // 调用trace_kmalloc函数记录内存分配信息
 
 			return ret;
 		}
 	}
-	return __kmalloc(size, flags);
+	return __kmalloc(size, flags); // 其他情况调用__kmalloc函数处理内存分配
 }
 
 #ifdef CONFIG_NUMA

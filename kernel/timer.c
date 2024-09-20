@@ -1350,9 +1350,10 @@ static void process_timeout(unsigned long __data)
  *
  * In all cases the return value is guaranteed to be non-negative.
  */
+// 将当前进程挂起至少timeout个jiffies
 signed long __sched schedule_timeout(signed long timeout)
 {
-	struct timer_list timer;
+	struct timer_list timer; // 创建一个定时器
 	unsigned long expire;
 
 	switch (timeout)
@@ -1386,15 +1387,16 @@ signed long __sched schedule_timeout(signed long timeout)
 
 	expire = timeout + jiffies;
 
+	// 设置定时器，timeout个jiffies后执行process_timeout函数，参数为current
 	setup_timer_on_stack(&timer, process_timeout, (unsigned long)current);
-	__mod_timer(&timer, expire, false, TIMER_NOT_PINNED);
-	schedule();
+	__mod_timer(&timer, expire, false, TIMER_NOT_PINNED); 
+	schedule(); // 挂起当前进程
 	del_singleshot_timer_sync(&timer);
 
 	/* Remove the timer from the object tracker */
 	destroy_timer_on_stack(&timer);
 
-	timeout = expire - jiffies;
+	timeout = expire - jiffies; // 返回剩余的jiffies
 
  out:
 	return timeout < 0 ? 0 : timeout;

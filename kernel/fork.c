@@ -109,6 +109,7 @@ int nr_processes(void)
 #ifndef __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
 # define alloc_task_struct()	kmem_cache_alloc(task_struct_cachep, GFP_KERNEL)
 # define free_task_struct(tsk)	kmem_cache_free(task_struct_cachep, (tsk))
+// task_struct_cachep: 负责分配task_struct结构体的slab缓存
 static struct kmem_cache *task_struct_cachep;
 #endif
 

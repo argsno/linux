@@ -38,20 +38,35 @@ struct vm_area_struct;
  * __GFP_MOVABLE: Flag that this page will be movable by the page migration
  * mechanism or reclaimed
  */
+// __GFP_WAIT表示可以等待并重新调度
 #define __GFP_WAIT	((__force gfp_t)0x10u)	/* Can wait and reschedule? */
+// __GFP_HIGH表示可以访问紧急池
 #define __GFP_HIGH	((__force gfp_t)0x20u)	/* Should access emergency pools? */
+// __GFP_IO表示可以启动物理IO
 #define __GFP_IO	((__force gfp_t)0x40u)	/* Can start physical IO? */
+// __GFP_FS表示可以调用底层FS
 #define __GFP_FS	((__force gfp_t)0x80u)	/* Can call down to low-level FS? */
+// __GFP_COLD表示需要冷缓存页
 #define __GFP_COLD	((__force gfp_t)0x100u)	/* Cache-cold page required */
+// __GFP_NOWARN表示不显示页面分配失败警告
 #define __GFP_NOWARN	((__force gfp_t)0x200u)	/* Suppress page allocation failure warning */
+// __GFP_REPEAT表示尝试分配内存
 #define __GFP_REPEAT	((__force gfp_t)0x400u)	/* See above */
+// __GFP_NOFAIL表示不断重试分配内存
 #define __GFP_NOFAIL	((__force gfp_t)0x800u)	/* See above */
+// __GFP_NORETRY表示失败时不重试
 #define __GFP_NORETRY	((__force gfp_t)0x1000u)/* See above */
+// __GFP_COMP表示添加复合页元数据(hugetlb使用)
 #define __GFP_COMP	((__force gfp_t)0x4000u)/* Add compound page metadata */
+// __GFP_ZERO表示成功时返回零页
 #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
+// __GFP_NOMEMALLOC表示不使用紧急保留的内存
 #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
+// __GFP_HARDWALL表示强制使用hardwall cpuset内存分配
 #define __GFP_HARDWALL   ((__force gfp_t)0x20000u) /* Enforce hardwall cpuset memory allocs */
+// __GFP_THISNODE表示不使用回退策略
 #define __GFP_THISNODE	((__force gfp_t)0x40000u)/* No fallback, no policies */
+// __GFP_RECLAIMABLE表示页面可回收
 #define __GFP_RECLAIMABLE ((__force gfp_t)0x80000u) /* Page is reclaimable */
 
 #ifdef CONFIG_KMEMCHECK
@@ -299,6 +314,7 @@ static inline struct page *alloc_pages_exact_node(int nid, gfp_t gfp_mask,
 #ifdef CONFIG_NUMA
 extern struct page *alloc_pages_current(gfp_t gfp_mask, unsigned order);
 
+// alloc_pages负责分配大小为2^order个页的内存，返回第一个页的地址
 static inline struct page *
 alloc_pages(gfp_t gfp_mask, unsigned int order)
 {

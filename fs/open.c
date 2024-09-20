@@ -1028,15 +1028,16 @@ EXPORT_SYMBOL(put_unused_fd);
  * will follow.
  */
 
+// fd_install：用于将一个文件描述符和一个文件指针关联，并将其安装到当前进程的文件描述符表中
 void fd_install(unsigned int fd, struct file *file)
 {
-	struct files_struct *files = current->files;
+	struct files_struct *files = current->files; // 获取当前进程的文件描述符表
 	struct fdtable *fdt;
-	spin_lock(&files->file_lock);
-	fdt = files_fdtable(files);
+	spin_lock(&files->file_lock); // 使用自旋锁file_lock保护对文件描述符表的访问
+	fdt = files_fdtable(files); // 调用files_fdtable函数获取文件描述符表的指针
 	BUG_ON(fdt->fd[fd] != NULL);
-	rcu_assign_pointer(fdt->fd[fd], file);
-	spin_unlock(&files->file_lock);
+	rcu_assign_pointer(fdt->fd[fd], file); // 将文件结构指针file关联到文件描述符fd
+	spin_unlock(&files->file_lock); // 释放自旋锁file_lock
 }
 
 EXPORT_SYMBOL(fd_install);

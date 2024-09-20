@@ -458,23 +458,24 @@ static struct socket *sockfd_lookup_light(int fd, int *err, int *fput_needed)
  *	NULL is returned.
  */
 
+// sock_alloc用于分配一个新的套接字对象
 static struct socket *sock_alloc(void)
 {
 	struct inode *inode;
 	struct socket *sock;
 
-	inode = new_inode(sock_mnt->mnt_sb);
+	inode = new_inode(sock_mnt->mnt_sb); // 调用new_inode函数在sock_mnt->mnt_sb超级块中分配一个新的inode对象
 	if (!inode)
 		return NULL;
 
-	sock = SOCKET_I(inode);
+	sock = SOCKET_I(inode); // 使用SOCKET_I宏将inode对象转换为struct sock对象
 
 	kmemcheck_annotate_bitfield(sock, type);
-	inode->i_mode = S_IFSOCK | S_IRWXUGO;
-	inode->i_uid = current_fsuid();
-	inode->i_gid = current_fsgid();
+	inode->i_mode = S_IFSOCK | S_IRWXUGO; // 设置inode的模式为套接字(S_IFSOCK)并赋予所有用户读、写、执行权限(S_IRWXUGO)
+	inode->i_uid = current_fsuid(); // 设置inode的用户id为当前文件系统用户id
+	inode->i_gid = current_fsgid(); // 设置inode的组id为当前文件系统组id
 
-	percpu_add(sockets_in_use, 1);
+	percpu_add(sockets_in_use, 1); // 调用percpu_add增加使用的套接字计数器sockets_in_use的值
 	return sock;
 }
 
@@ -1168,6 +1169,7 @@ call_kill:
 	return 0;
 }
 
+// __sock_create用于在指定的网络命名空间创建套接字
 static int __sock_create(struct net *net, int family, int type, int protocol,
 			 struct socket **res, int kern)
 {
@@ -1198,7 +1200,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 		family = PF_PACKET;
 	}
 
-	err = security_socket_create(family, type, protocol, kern);
+	err = security_socket_create(family, type, protocol, kern); // 调用安全模块的钩子函数进行安全检查
 	if (err)
 		return err;
 
@@ -1207,7 +1209,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	 *	the protocol is 0, the family is instructed to select an appropriate
 	 *	default.
 	 */
-	sock = sock_alloc();
+	sock = sock_alloc(); // 分配一个新的套接字结构
 	if (!sock) {
 		if (net_ratelimit())
 			printk(KERN_WARNING "socket: no more sockets\n");
@@ -1215,7 +1217,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 				   closest posix thing */
 	}
 
-	sock->type = type;
+	sock->type = type; // 设置套接字类型
 
 #ifdef CONFIG_MODULES
 	/* Attempt to load a protocol module if the find failed.
@@ -1225,11 +1227,11 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	 * Otherwise module support will break!
 	 */
 	if (net_families[family] == NULL)
-		request_module("net-pf-%d", family);
+		request_module("net-pf-%d", family); // 如果协议族未注册且内核支持模块加载，尝试加载对应的协议模块
 #endif
 
 	rcu_read_lock();
-	pf = rcu_dereference(net_families[family]);
+	pf = rcu_dereference(net_families[family]); // 获取协议族pf
 	err = -EAFNOSUPPORT;
 	if (!pf)
 		goto out_release;
@@ -1238,13 +1240,13 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	 * We will call the ->create function, that possibly is in a loadable
 	 * module, so we have to bump that loadable module refcnt first.
 	 */
-	if (!try_module_get(pf->owner))
+	if (!try_module_get(pf->owner)) // 尝试增加协议族模块的引用计数
 		goto out_release;
 
 	/* Now protected by module ref count */
 	rcu_read_unlock();
 
-	err = pf->create(net, sock, protocol, kern);
+	err = pf->create(net, sock, protocol, kern); // 调用协议族的create函数创建套接字
 	if (err < 0)
 		goto out_module_put;
 
@@ -1252,15 +1254,15 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	 * Now to bump the refcnt of the [loadable] module that owns this
 	 * socket at sock_release time we decrement its refcnt.
 	 */
-	if (!try_module_get(sock->ops->owner))
+	if (!try_module_get(sock->ops->owner)) // 尝试增加套接字操作模块的引用计数
 		goto out_module_busy;
 
 	/*
 	 * Now that we're done with the ->create function, the [loadable]
 	 * module can have its refcnt decremented
 	 */
-	module_put(pf->owner);
-	err = security_socket_post_create(sock, family, type, protocol, kern);
+	module_put(pf->owner); // 释放协议族模块的引用计数
+	err = security_socket_post_create(sock, family, type, protocol, kern); // 调用安全模块的钩子函数进行创建后检查
 	if (err)
 		goto out_sock_release;
 	*res = sock;
@@ -1283,7 +1285,7 @@ out_release:
 
 int sock_create(int family, int type, int protocol, struct socket **res)
 {
-	return __sock_create(current->nsproxy->net_ns, family, type, protocol, res, 0);
+	return __sock_create(current->nsproxy->net_ns, family, type, protocol, res, 0); // 在当前进程对应的网络命名空间中创建套接字
 }
 
 int sock_create_kern(int family, int type, int protocol, struct socket **res)
@@ -1291,6 +1293,7 @@ int sock_create_kern(int family, int type, int protocol, struct socket **res)
 	return __sock_create(&init_net, family, type, protocol, res, 1);
 }
 
+// socket系统调用：用于创建一个新的套接字socket
 SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 {
 	int retval;
@@ -1311,11 +1314,11 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
-	retval = sock_create(family, type, protocol, &sock);
+	retval = sock_create(family, type, protocol, &sock); // 调用sock_create函数创建一个新的套接字
 	if (retval < 0)
 		goto out;
 
-	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
+	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK)); // 调用sock_map_fd函数将套接字映射到文件描述符
 	if (retval < 0)
 		goto out_release;
 
@@ -1413,25 +1416,28 @@ out:
  *	the protocol layer (having also checked the address is ok).
  */
 
+// bind系统调用：用于将一个地址绑定到一个套接字上
 SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 {
 	struct socket *sock;
 	struct sockaddr_storage address;
 	int err, fput_needed;
 
-	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+	sock = sockfd_lookup_light(fd, &err, &fput_needed); // 调用sockfd_lookup_light函数根据文件描述符查找对应的套接字
 	if (sock) {
-		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
+		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address); // 调用move_addr_to_kernel函数将用户空间的地址复制到内核空间
 		if (err >= 0) {
+			// 调用安全模块的钩子函数进行绑定前检查
 			err = security_socket_bind(sock,
 						   (struct sockaddr *)&address,
 						   addrlen);
 			if (!err)
+				// 调用协议族的bind函数将地址绑定到套接字上
 				err = sock->ops->bind(sock,
 						      (struct sockaddr *)
 						      &address, addrlen);
 		}
-		fput_light(sock->file, fput_needed);
+		fput_light(sock->file, fput_needed); // 释放套接字文件的引用计数
 	}
 	return err;
 }
@@ -1442,23 +1448,24 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
  *	ready for listening.
  */
 
+// listen系统调用：用于将一个套接字设置为监听状态
 SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 {
 	struct socket *sock;
 	int err, fput_needed;
 	int somaxconn;
 
-	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+	sock = sockfd_lookup_light(fd, &err, &fput_needed); // 调用sockfd_lookup_light函数根据文件描述符查找对应的套接字
 	if (sock) {
-		somaxconn = sock_net(sock->sk)->core.sysctl_somaxconn;
+		somaxconn = sock_net(sock->sk)->core.sysctl_somaxconn; // 获取系统允许的最大监听队列长度somaxconn
 		if ((unsigned)backlog > somaxconn)
 			backlog = somaxconn;
 
-		err = security_socket_listen(sock, backlog);
+		err = security_socket_listen(sock, backlog); // 调用安全模块的钩子函数进行监听前检查
 		if (!err)
-			err = sock->ops->listen(sock, backlog);
+			err = sock->ops->listen(sock, backlog); // 调用协议族的listen函数将套接字设置为监听状态
 
-		fput_light(sock->file, fput_needed);
+		fput_light(sock->file, fput_needed); // 释放套接字文件的引用
 	}
 	return err;
 }
@@ -1475,6 +1482,7 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
  *	clean when we restucture accept also.
  */
 
+// accept4系统调用：用于接受一个连接并返回一个新建的文件描述符（套接字）
 SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 		int __user *, upeer_addrlen, int, flags)
 {
@@ -1489,14 +1497,15 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
-	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+	sock = sockfd_lookup_light(fd, &err, &fput_needed); // 调用sockfd_lookup_light函数根据文件描述符查找对应的套接字
 	if (!sock)
 		goto out;
 
 	err = -ENFILE;
-	if (!(newsock = sock_alloc()))
+	if (!(newsock = sock_alloc())) // 调用sock_alloc函数分配一个新的套接字结构
 		goto out_put;
 
+	// 将新套接字的类型和操作设置为与原套接字相同
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
 
@@ -1506,40 +1515,40 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	 */
 	__module_get(newsock->ops->owner);
 
-	newfd = sock_alloc_file(newsock, &newfile, flags);
+	newfd = sock_alloc_file(newsock, &newfile, flags); // 调用sock_alloc_file函数为新套接字分配一个文件描述符
 	if (unlikely(newfd < 0)) {
 		err = newfd;
 		sock_release(newsock);
 		goto out_put;
 	}
 
-	err = security_socket_accept(sock, newsock);
+	err = security_socket_accept(sock, newsock); // 调用安全模块的钩子函数进行接受连接前检查
 	if (err)
 		goto out_fd;
 
-	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
+	err = sock->ops->accept(sock, newsock, sock->file->f_flags); // 调用协议族的accept函数接受一个连接
 	if (err < 0)
 		goto out_fd;
 
 	if (upeer_sockaddr) {
 		if (newsock->ops->getname(newsock, (struct sockaddr *)&address,
-					  &len, 2) < 0) {
+					  &len, 2) < 0) { // 调用协议族的getname函数获取连接方的地址并保存在address中
 			err = -ECONNABORTED;
 			goto out_fd;
 		}
 		err = move_addr_to_user((struct sockaddr *)&address,
-					len, upeer_sockaddr, upeer_addrlen);
+					len, upeer_sockaddr, upeer_addrlen); // 调用move_addr_to_user函数将address中的地址复制到用户空间
 		if (err < 0)
 			goto out_fd;
 	}
 
 	/* File flags are not inherited via accept() unlike another OSes. */
 
-	fd_install(newfd, newfile);
+	fd_install(newfd, newfile); // 将新套接字的文件描述符安装到文件描述符表中
 	err = newfd;
 
 out_put:
-	fput_light(sock->file, fput_needed);
+	fput_light(sock->file, fput_needed); // 释放监听套接字的文件结构
 out:
 	return err;
 out_fd:

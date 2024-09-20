@@ -79,6 +79,7 @@
  * get_jiffies_64() will do this for you as appropriate.
  */
 extern u64 __jiffy_data jiffies_64;
+// volatile: 防止编译器优化，确保每次都从内存中读取数据，而不是从寄存器或者缓冲区中读取
 extern unsigned long volatile __jiffy_data jiffies;
 
 #if (BITS_PER_LONG < 64)

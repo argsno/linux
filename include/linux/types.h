@@ -176,6 +176,9 @@ typedef __u16 __bitwise __sum16;
 typedef __u32 __bitwise __wsum;
 
 #ifdef __KERNEL__
+// __bitwise__是一个宏，用于标记一个类型是位域类型
+// gfp（get free page）是一个标志位，用于标记内存分配的行为
+// gfp_t可以分为三类：Action modifiers(how)、Zone modifiers(where)、Types flags(combinations of action and zone)
 typedef unsigned __bitwise__ gfp_t;
 typedef unsigned __bitwise__ fmode_t;
 

@@ -208,6 +208,7 @@ enum zone_type {
 	 * i386, x86_64 and multiple other arches
 	 * 			<16M.
 	 */
+	// ZONE_DMA是系统中最低的内存区域，它包含了DMA设备能够访问的内存页
 	ZONE_DMA,
 #endif
 #ifdef CONFIG_ZONE_DMA32
@@ -216,6 +217,7 @@ enum zone_type {
 	 * only able to do DMA to the lower 16M but also 32 bit devices that
 	 * can only do DMA areas below 4G.
 	 */
+	// ZONE_DMA32: 32位DMA设备能够访问的内存区域
 	ZONE_DMA32,
 #endif
 	/*
@@ -223,6 +225,7 @@ enum zone_type {
 	 * performed on pages in ZONE_NORMAL if the DMA devices support
 	 * transfers to all addressable memory.
 	 */
+	// ZONE_NORMAL是系统中最常用的内存区域，它包含了大部分的内存页
 	ZONE_NORMAL,
 #ifdef CONFIG_HIGHMEM
 	/*

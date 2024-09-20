@@ -22,13 +22,14 @@ struct fs_struct;
  * As soon as a single namespace is cloned or unshared, the
  * nsproxy is copied.
  */
+// 用于存储每个进程所有的命名空间的指针，包括fs（mount）、uts、network、sysvipc等
 struct nsproxy {
-	atomic_t count;
-	struct uts_namespace *uts_ns;
-	struct ipc_namespace *ipc_ns;
-	struct mnt_namespace *mnt_ns;
-	struct pid_namespace *pid_ns;
-	struct net 	     *net_ns;
+	atomic_t count; // 引用计数，根据有多少进程共享这个 nsproxy 结构体
+	struct uts_namespace *uts_ns; // UTS（Unix Time-sharing System）命名空间（管理主机名和域名）
+	struct ipc_namespace *ipc_ns; // IPC（Inter-Process Communication）命名空间（管理信号量、消息队列和共享内存）
+	struct mnt_namespace *mnt_ns; // mount 命名空间（管理文件系统的挂载点）
+	struct pid_namespace *pid_ns; // PID 命名空间（管理进程ID）
+	struct net 	     *net_ns; // 网络命名空间（管理网络设备、IP地址和路由表）
 };
 extern struct nsproxy init_nsproxy;
 
