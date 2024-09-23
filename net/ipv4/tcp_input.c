@@ -5363,8 +5363,9 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPHITS);
 
 				/* Bulk data transfer: receiver */
+				// 接收数据放入接收队列
 				__skb_pull(skb, tcp_header_len);
-				__skb_queue_tail(&sk->sk_receive_queue, skb);
+				__skb_queue_tail(&sk->sk_receive_queue, skb); // 将接收到的数据放到sock的接收队列的尾部
 				skb_set_owner_r(skb, sk);
 				tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
 			}
@@ -5390,7 +5391,7 @@ no_ack:
 			if (eaten)
 				__kfree_skb(skb);
 			else
-				sk->sk_data_ready(sk, 0);
+				sk->sk_data_ready(sk, 0); // 数据准备好，唤醒sock上阻塞的进程（在sock_init_data函数中设置为sock_def_readable）
 			return 0;
 		}
 	}

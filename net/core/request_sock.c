@@ -40,30 +40,35 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
 	size_t lopt_size = sizeof(struct listen_sock);
 	struct listen_sock *lopt;
 
-	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
-	nr_table_entries = max_t(u32, nr_table_entries, 8);
-	nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
+	// 计算半连接队列的长度
+	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog); // 和tcp_max_syn_backlog取最小值
+	nr_table_entries = max_t(u32, nr_table_entries, 8); // 保证最小值为8
+	nr_table_entries = roundup_pow_of_two(nr_table_entries + 1); // 加1之后对齐到2的幂次方
+	// 总结：半队列的长度是min(backlog, somaxconn, tcp_max_syn_backlog) + 1在向上取整到2的N次幂，最小不能小于16
+
+	// 为listen_sock对象申请内存，这里包含了半连接队列
 	lopt_size += nr_table_entries * sizeof(struct request_sock *);
-	if (lopt_size > PAGE_SIZE)
+	if (lopt_size > PAGE_SIZE) // 如果内存大小超过一页，使用vmalloc
 		lopt = __vmalloc(lopt_size,
 			GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO,
 			PAGE_KERNEL);
 	else
-		lopt = kzalloc(lopt_size, GFP_KERNEL);
+		lopt = kzalloc(lopt_size, GFP_KERNEL); // 否则使用kzalloc（kmalloc）
 	if (lopt == NULL)
 		return -ENOMEM;
 
 	for (lopt->max_qlen_log = 3;
 	     (1 << lopt->max_qlen_log) < nr_table_entries;
-	     lopt->max_qlen_log++);
+	     lopt->max_qlen_log++); // 为了效率，不记录nr_table_entries的值，而是记录其对数
 
 	get_random_bytes(&lopt->hash_rnd, sizeof(lopt->hash_rnd));
 	rwlock_init(&queue->syn_wait_lock);
+	// 全连接队列头初始化
 	queue->rskq_accept_head = NULL;
 	lopt->nr_table_entries = nr_table_entries;
 
 	write_lock_bh(&queue->syn_wait_lock);
-	queue->listen_opt = lopt;
+	queue->listen_opt = lopt; // 半连接队列设置
 	write_unlock_bh(&queue->syn_wait_lock);
 
 	return 0;

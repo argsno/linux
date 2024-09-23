@@ -1559,6 +1559,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 
 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
 		TCP_CHECK_TIMER(sk);
+		// 执行连接状态下的数据处理
 		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len)) {
 			rsk = sk;
 			goto reset;
@@ -1570,6 +1571,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	if (skb->len < tcp_hdrlen(skb) || tcp_checksum_complete(skb))
 		goto csum_err;
 
+	// 其他非ESTABLISHED状态下的数据包处理
 	if (sk->sk_state == TCP_LISTEN) {
 		struct sock *nsk = tcp_v4_hnd_req(sk, skb);
 		if (!nsk)
@@ -1612,6 +1614,7 @@ csum_err:
  *	From tcp_input.c
  */
 
+// 软中断（也就是Linux里的ksoftirqd线程）里接收到数据以后，发现是TCP包就会执行tcp_v4_rcv
 int tcp_v4_rcv(struct sk_buff *skb)
 {
 	const struct iphdr *iph;
@@ -1643,8 +1646,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
 		goto bad_packet;
 
-	th = tcp_hdr(skb);
-	iph = ip_hdr(skb);
+	th = tcp_hdr(skb); // 获取tcp header
+	iph = ip_hdr(skb); // 获取ip header
 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
 				    skb->len - th->doff * 4);
@@ -1653,6 +1656,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	TCP_SKB_CB(skb)->flags	 = iph->tos;
 	TCP_SKB_CB(skb)->sacked	 = 0;
 
+	// 根据数据包 header 中的IP、端口信息查找对应的sock
 	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
 	if (!sk)
 		goto no_tcp_socket;
@@ -1677,7 +1681,7 @@ process:
 
 	bh_lock_sock_nested(sk);
 	ret = 0;
-	if (!sock_owned_by_user(sk)) {
+	if (!sock_owned_by_user(sk)) { // sock未被用户锁定
 #ifdef CONFIG_NET_DMA
 		struct tcp_sock *tp = tcp_sk(sk);
 		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
@@ -1688,7 +1692,7 @@ process:
 #endif
 		{
 			if (!tcp_prequeue(sk, skb))
-				ret = tcp_v4_do_rcv(sk, skb);
+				ret = tcp_v4_do_rcv(sk, skb); // 调用tcp_v4_do_rcv处理数据包
 		}
 	} else if (unlikely(sk_add_backlog(sk, skb))) {
 		bh_unlock_sock(sk);

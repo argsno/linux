@@ -3909,6 +3909,8 @@ asmlinkage void __sched preempt_schedule_irq(void)
 int default_wake_function(wait_queue_t *curr, unsigned mode, int wake_flags,
 			  void *key)
 {
+	// 调用try_to_wake_up并传入curr->private
+	// 当这个函数运行时，在socket上等待而被阻塞的进程就被推入运行队列，而被唤醒（这将产生一次上下文切换开销）
 	return try_to_wake_up(curr->private, mode, wake_flags);
 }
 EXPORT_SYMBOL(default_wake_function);
@@ -3930,6 +3932,7 @@ static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
 	list_for_each_entry_safe(curr, next, &q->task_list, task_list) {
 		unsigned flags = curr->flags;
 
+		// 遍历等待队列，并调用curr->func()（前面设置成了autoremove_wake_function）
 		if (curr->func(curr, mode, wake_flags, key) &&
 				(flags & WQ_FLAG_EXCLUSIVE) && !--nr_exclusive)
 			break;
@@ -4001,7 +4004,9 @@ void __wake_up_sync_key(wait_queue_head_t *q, unsigned int mode,
 		wake_flags = 0;
 
 	spin_lock_irqsave(&q->lock, flags);
-	__wake_up_common(q, mode, nr_exclusive, wake_flags, key);
+	// nr_exclusive为1表示即使有多个进程都阻塞在同一个socket上，也只唤醒其中一个进程
+	// 其作用是避免“惊群效应”，即多个进程同时被唤醒，但只有一个进程能够获得资源
+	__wake_up_common(q, mode, nr_exclusive, wake_flags, key); // 调用__wake_up_common函数唤醒等待队列中的线程
 	spin_unlock_irqrestore(&q->lock, flags);
 }
 EXPORT_SYMBOL_GPL(__wake_up_sync_key);

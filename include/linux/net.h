@@ -88,7 +88,7 @@ struct net;
  * overrides this enum for binary compat reasons.
  */
 enum sock_type {
-	SOCK_STREAM	= 1,
+	SOCK_STREAM	= 1, // 流式套接字，通常用于TCP，提供面向连接的、可靠的、基于字节流的服务
 	SOCK_DGRAM	= 2,
 	SOCK_RAW	= 3,
 	SOCK_RDM	= 4,
@@ -143,7 +143,7 @@ struct socket {
 
 	struct file		*file;
 	struct sock		*sk;
-	const struct proto_ops	*ops;
+	const struct proto_ops	*ops; // 指向协议相关的操作函数（TCP为inet_stream_ops）
 };
 
 struct vm_area_struct;

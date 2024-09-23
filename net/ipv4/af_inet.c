@@ -189,6 +189,8 @@ static int inet_autobind(struct sock *sk)
 /*
  *	Move a socket into listening state.
  */
+// inet_listen函数用于将一个套接字转换为监听状态
+// 负责初始化全连接队列和半连接队列（TCP三次握手重要的数据结构）
 int inet_listen(struct socket *sock, int backlog)
 {
 	struct sock *sk = sock->sk;
@@ -208,12 +210,12 @@ int inet_listen(struct socket *sock, int backlog)
 	/* Really, if the socket is already in listen state
 	 * we can only allow the backlog to be adjusted.
 	 */
-	if (old_state != TCP_LISTEN) {
-		err = inet_csk_listen_start(sk, backlog);
+	if (old_state != TCP_LISTEN) { // 如果套接字还不是监听状态
+		err = inet_csk_listen_start(sk, backlog); // 调用inet_csk_listen_start函数开始监听
 		if (err)
 			goto out;
 	}
-	sk->sk_max_ack_backlog = backlog;
+	sk->sk_max_ack_backlog = backlog; // 设置全连接队列的最大长度
 	err = 0;
 
 out:
@@ -263,6 +265,7 @@ static inline int inet_netns_ok(struct net *net, int protocol)
  *	Create an inet socket.
  */
 
+// inet_create函数用于创建一个inet套接字
 static int inet_create(struct net *net, struct socket *sock, int protocol,
 		       int kern)
 {
@@ -285,6 +288,7 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
 lookup_protocol:
 	err = -ESOCKTNOSUPPORT;
 	rcu_read_lock();
+	// 遍历inetsw链表，找到对应的inet_protosw结构体
 	list_for_each_entry_rcu(answer, &inetsw[sock->type], list) {
 
 		err = 0;
@@ -334,8 +338,8 @@ lookup_protocol:
 	if (!inet_netns_ok(net, protocol))
 		goto out_rcu_unlock;
 
-	sock->ops = answer->ops;
-	answer_prot = answer->prot;
+	sock->ops = answer->ops; // 赋值给socket->ops(TCP/IP为inet_stream_ops)
+	answer_prot = answer->prot; // 获取tcp_prot
 	answer_no_check = answer->no_check;
 	answer_flags = answer->flags;
 	rcu_read_unlock();
@@ -343,7 +347,7 @@ lookup_protocol:
 	WARN_ON(answer_prot->slab == NULL);
 
 	err = -ENOBUFS;
-	sk = sk_alloc(net, PF_INET, GFP_KERNEL, answer_prot);
+	sk = sk_alloc(net, PF_INET, GFP_KERNEL, answer_prot); // 分配sock对象，并将tcp_prot赋值给sk->sk_prot
 	if (sk == NULL)
 		goto out;
 
@@ -368,7 +372,7 @@ lookup_protocol:
 
 	inet->inet_id = 0;
 
-	sock_init_data(sock, sk);
+	sock_init_data(sock, sk); // 对sock对象进行初始化
 
 	sk->sk_destruct	   = inet_sock_destruct;
 	sk->sk_protocol	   = protocol;

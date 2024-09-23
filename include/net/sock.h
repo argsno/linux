@@ -146,7 +146,7 @@ struct sock_common {
 		struct hlist_node	skc_bind_node;
 		struct hlist_nulls_node skc_portaddr_node;
 	};
-	struct proto		*skc_prot;
+	struct proto		*skc_prot; // 指向协议处理函数(TCP协议为tcp_prot)
 #ifdef CONFIG_NET_NS
 	struct net	 	*skc_net;
 #endif
@@ -235,7 +235,7 @@ struct sock {
 #define sk_reuse		__sk_common.skc_reuse
 #define sk_bound_dev_if		__sk_common.skc_bound_dev_if
 #define sk_bind_node		__sk_common.skc_bind_node
-#define sk_prot			__sk_common.skc_prot
+#define sk_prot			__sk_common.skc_prot // 指向协议处理程序（TCP协议为tcp_prot）
 #define sk_net			__sk_common.skc_net
 	kmemcheck_bitfield_begin(flags);
 	unsigned int		sk_shutdown  : 2,
@@ -257,7 +257,7 @@ struct sock {
 		int len;
 		int limit;
 	} sk_backlog;
-	wait_queue_head_t	*sk_sleep;
+	wait_queue_head_t	*sk_sleep; // 等待队列
 	struct dst_entry	*sk_dst_cache;
 #ifdef CONFIG_XFRM
 	struct xfrm_policy	*sk_policy[2];

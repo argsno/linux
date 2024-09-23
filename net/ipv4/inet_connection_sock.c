@@ -627,11 +627,18 @@ void inet_csk_destroy_sock(struct sock *sk)
 
 EXPORT_SYMBOL(inet_csk_destroy_sock);
 
+// inet_csk_listen_start负责将socket设置为监听状态
 int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
 {
+	// 将struct sock强制转换为inet_sock对象，因为inet_sock是包含sock
 	struct inet_sock *inet = inet_sk(sk);
+	// 将struct sock强制转换为inet_connection_sock对象，因为inet_connection_sock是包含inet_sock（包含sock）的
 	struct inet_connection_sock *icsk = inet_csk(sk);
+	// icsk->icsk_accept_queue是接收队列
+	// 接收队列内核对象的申请和初始化
 	int rc = reqsk_queue_alloc(&icsk->icsk_accept_queue, nr_table_entries);
+	// tcp_sock 包含inet_connection_sock，inet_connection_sock包含inet_sock，inet_sock包含sock
+	// 对于TCP的socket，sock对象其实是一个tcp_sock对象
 
 	if (rc != 0)
 		return rc;

@@ -1568,10 +1568,15 @@ static void __release_sock(struct sock *sk)
 int sk_wait_data(struct sock *sk, long *timeo)
 {
 	int rc;
+	// 定义等待队列项wait，注册了回调函数autoremove_wake_function，并把当前进程（current）关联到private成员上
 	DEFINE_WAIT(wait);
 
+	// 通过sk->sk_sleep获取sock对象下的等待队列头
+	// 调用prepare_to_wait把新定义的等待队列项wait插入到sock对象的等待队列，并将进程状态设置为可打断（TASK_INTERRUPTIBLE）
+	// 这样后面当内核接收完数据产生就绪事件的时候，就可以查找socket等待队列上的等待项，进而可以找到回调函数和在等待该socket就绪事件的进程
 	prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
 	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+	// 通过调用schedule_timeout让出CPU，然后进行睡眠（会导致一次进程上下文的开销）
 	rc = sk_wait_event(sk, timeo, !skb_queue_empty(&sk->sk_receive_queue));
 	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
 	finish_wait(sk->sk_sleep, &wait);
@@ -1814,7 +1819,9 @@ static void sock_def_error_report(struct sock *sk)
 static void sock_def_readable(struct sock *sk, int len)
 {
 	read_lock(&sk->sk_callback_lock);
+	// 有进程在此sock的等待队列
 	if (sk_has_sleeper(sk))
+		// 唤醒等待队列上的进程
 		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN |
 						POLLRDNORM | POLLRDBAND);
 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
@@ -1905,6 +1912,8 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 			af_family_clock_key_strings[sk->sk_family]);
 
 	sk->sk_state_change	=	sock_def_wakeup;
+	// 对sk_data_ready进行初始化，指向sock_def_readable
+	// 当软中断上收到数据包时，会通过调用sk_data_ready函数指针（实际上是sock_def_readable）来唤醒在sock上等待的进程
 	sk->sk_data_ready	=	sock_def_readable;
 	sk->sk_write_space	=	sock_def_write_space;
 	sk->sk_error_report	=	sock_def_error_report;
@@ -2053,7 +2062,7 @@ int sock_common_recvmsg(struct kiocb *iocb, struct socket *sock,
 	int err;
 
 	err = sk->sk_prot->recvmsg(iocb, sk, msg, size, flags & MSG_DONTWAIT,
-				   flags & ~MSG_DONTWAIT, &addr_len);
+				   flags & ~MSG_DONTWAIT, &addr_len); // 调用sock对象里的sk_prot下的recvmsg函数（TCP为tcp_recvmsg）
 	if (err >= 0)
 		msg->msg_namelen = addr_len;
 	return err;

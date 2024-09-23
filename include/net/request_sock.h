@@ -102,7 +102,8 @@ struct listen_sock {
 	int			clock_hand;
 	u32			hash_rnd;
 	u32			nr_table_entries;
-	struct request_sock	*syn_table[0];
+	// 因为服务端需要在第三次握手时快速找到第一次握手时留存的半连接请求(request_sock对象），所以需要一个哈希表
+	struct request_sock	*syn_table[0]; // 半连接队列
 };
 
 /** struct request_sock_queue - queue of request_socks
@@ -121,9 +122,10 @@ struct listen_sock {
  * don't need to grab this lock in read mode too as rskq_accept_head. writes
  * are always protected from the main sock lock.
  */
+// request_sock_queue：内核用来接收客户端请求的主要数据结构
 struct request_sock_queue {
-	struct request_sock	*rskq_accept_head;
-	struct request_sock	*rskq_accept_tail;
+	struct request_sock	*rskq_accept_head; // 全连接队列的头指针
+	struct request_sock	*rskq_accept_tail; // 全连接队列的尾指针
 	rwlock_t		syn_wait_lock;
 	u8			rskq_defer_accept;
 	/* 3 bytes hole, try to pack */

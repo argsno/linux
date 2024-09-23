@@ -676,7 +676,7 @@ static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
 	si->size = size;
 	si->flags = flags;
 
-	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
+	return sock->ops->recvmsg(iocb, sock, msg, size, flags); // 调用对应协议族的recvmsg函数接收数据（对于TCP/IP协议族，调用sock_common_recvmsg函数）
 }
 
 static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
@@ -684,7 +684,7 @@ static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 {
 	int err = security_socket_recvmsg(sock, msg, size, flags);
 
-	return err ?: __sock_recvmsg_nosec(iocb, sock, msg, size, flags);
+	return err ?: __sock_recvmsg_nosec(iocb, sock, msg, size, flags); // 调用__sock_recvmsg_nosec函数接收数据
 }
 
 int sock_recvmsg(struct socket *sock, struct msghdr *msg,
@@ -696,7 +696,7 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg,
 
 	init_sync_kiocb(&iocb, NULL);
 	iocb.private = &siocb;
-	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
+	ret = __sock_recvmsg(&iocb, sock, msg, size, flags); // 调用__sock_recvmsg函数接收数据
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&iocb);
 	return ret;
@@ -1209,7 +1209,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	 *	the protocol is 0, the family is instructed to select an appropriate
 	 *	default.
 	 */
-	sock = sock_alloc(); // 分配一个新的套接字结构
+	sock = sock_alloc(); // 分配一个新的套接字结构（socket对象）
 	if (!sock) {
 		if (net_ratelimit())
 			printk(KERN_WARNING "socket: no more sockets\n");
@@ -1231,7 +1231,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 #endif
 
 	rcu_read_lock();
-	pf = rcu_dereference(net_families[family]); // 获取协议族pf
+	pf = rcu_dereference(net_families[family]); // 获取指定协议族的操作表
 	err = -EAFNOSUPPORT;
 	if (!pf)
 		goto out_release;
@@ -1246,7 +1246,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	/* Now protected by module ref count */
 	rcu_read_unlock();
 
-	err = pf->create(net, sock, protocol, kern); // 调用协议族的create函数创建套接字
+	err = pf->create(net, sock, protocol, kern); // 调用对应协议族的create函数创建套接字，对于AF_INET族，调用inet_create函数
 	if (err < 0)
 		goto out_module_put;
 
@@ -1457,7 +1457,7 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 
 	sock = sockfd_lookup_light(fd, &err, &fput_needed); // 调用sockfd_lookup_light函数根据文件描述符查找对应的套接字
 	if (sock) {
-		somaxconn = sock_net(sock->sk)->core.sysctl_somaxconn; // 获取系统允许的最大监听队列长度somaxconn
+		somaxconn = sock_net(sock->sk)->core.sysctl_somaxconn; // 获取系统允许的最大监听队列长度somaxconn(net.core.somaxconn)
 		if ((unsigned)backlog > somaxconn)
 			backlog = somaxconn;
 
@@ -1727,6 +1727,7 @@ SYSCALL_DEFINE4(send, int, fd, void __user *, buff, size_t, len,
  *	sender address from kernel to user space.
  */
 
+// recvfrom：负责接收数据
 SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 		unsigned, flags, struct sockaddr __user *, addr,
 		int __user *, addr_len)
@@ -1738,7 +1739,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	int err, err2;
 	int fput_needed;
 
-	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+	sock = sockfd_lookup_light(fd, &err, &fput_needed); // 根据用户传入的fd找到socket对象
 	if (!sock)
 		goto out;
 
@@ -1752,7 +1753,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	msg.msg_namelen = sizeof(address);
 	if (sock->file->f_flags & O_NONBLOCK)
 		flags |= MSG_DONTWAIT;
-	err = sock_recvmsg(sock, &msg, size, flags);
+	err = sock_recvmsg(sock, &msg, size, flags); // 调用sock_recvmsg函数接收数据
 
 	if (err >= 0 && addr != NULL) {
 		err2 = move_addr_to_user((struct sockaddr *)&address,

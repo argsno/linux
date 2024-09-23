@@ -163,7 +163,7 @@ EXPORT_SYMBOL(abort_exclusive_wait);
 
 int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key)
 {
-	int ret = default_wake_function(wait, mode, sync, key);
+	int ret = default_wake_function(wait, mode, sync, key); // 调用default_wake_function
 
 	if (ret)
 		list_del_init(&wait->task_list);
