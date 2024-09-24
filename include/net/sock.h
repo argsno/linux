@@ -1370,7 +1370,7 @@ static inline void sock_poll_wait(struct file *filp,
 		wait_queue_head_t *wait_address, poll_table *p)
 {
 	if (p && wait_address) {
-		poll_wait(filp, wait_address, p);
+		poll_wait(filp, wait_address, p); // 调用 poll_wait 函数
 		/*
 		 * We need to be sure we are in sync with the
 		 * socket flags modification.

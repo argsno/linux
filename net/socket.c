@@ -552,7 +552,7 @@ static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (err)
 		return err;
 
-	return sock->ops->sendmsg(iocb, sock, msg, size);
+	return sock->ops->sendmsg(iocb, sock, msg, size); // 调用对应协议族的sendmsg函数发送数据（对于TCP/IP协议族，调用inet_sendmsg函数）
 }
 
 int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
@@ -563,7 +563,7 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 
 	init_sync_kiocb(&iocb, NULL);
 	iocb.private = &siocb;
-	ret = __sock_sendmsg(&iocb, sock, msg, size);
+	ret = __sock_sendmsg(&iocb, sock, msg, size); // 调用__sock_sendmsg函数发送数据
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&iocb);
 	return ret;
@@ -1036,7 +1036,7 @@ static unsigned int sock_poll(struct file *file, poll_table *wait)
 	 *      We can't return errors to poll, so it's either yes or no.
 	 */
 	sock = file->private_data;
-	return sock->ops->poll(file, sock, wait);
+	return sock->ops->poll(file, sock, wait); // 调用对应协议族的poll函数（TCP/IP协议族的poll函数为tcp_poll）
 }
 
 static int sock_mmap(struct file *file, struct vm_area_struct *vma)
@@ -1677,7 +1677,7 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 	struct socket *sock;
 	struct sockaddr_storage address;
 	int err;
-	struct msghdr msg;
+	struct msghdr msg; // 初始化msghdr结构体：用于存放发送数据的相关信息
 	struct iovec iov;
 	int fput_needed;
 
@@ -1703,7 +1703,7 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 	if (sock->file->f_flags & O_NONBLOCK)
 		flags |= MSG_DONTWAIT;
 	msg.msg_flags = flags;
-	err = sock_sendmsg(sock, &msg, len);
+	err = sock_sendmsg(sock, &msg, len); // 调用sock_sendmsg函数发送数据
 
 out_put:
 	fput_light(sock->file, fput_needed);

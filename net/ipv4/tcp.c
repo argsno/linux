@@ -378,6 +378,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
 	struct sock *sk = sock->sk;
 	struct tcp_sock *tp = tcp_sk(sk);
 
+	// sk->sk_sleep为socket对象的等待队列头
 	sock_poll_wait(file, sk->sk_sleep, wait);
 	if (sk->sk_state == TCP_LISTEN)
 		return inet_csk_listen_poll(sk);
@@ -902,7 +903,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 {
 	struct sock *sk = sock->sk;
 	struct iovec *iov;
-	struct tcp_sock *tp = tcp_sk(sk);
+	struct tcp_sock *tp = tcp_sk(sk); // 强制转换为tcp_sock类型
 	struct sk_buff *skb;
 	int iovlen, flags;
 	int mss_now, size_goal;

@@ -728,7 +728,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 	if (!inet_sk(sk)->inet_num && inet_autobind(sk))
 		return -EAGAIN;
 
-	return sk->sk_prot->sendmsg(iocb, sk, msg, size);
+	return sk->sk_prot->sendmsg(iocb, sk, msg, size); // 调用对应协议的sendmsg函数（TCP为tcp_sendmsg）
 }
 EXPORT_SYMBOL(inet_sendmsg);
 

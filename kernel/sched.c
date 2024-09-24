@@ -3933,6 +3933,7 @@ static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
 		unsigned flags = curr->flags;
 
 		// 遍历等待队列，并调用curr->func()（前面设置成了autoremove_wake_function）
+		// 对于epoll，func为ep_poll_callback
 		if (curr->func(curr, mode, wake_flags, key) &&
 				(flags & WQ_FLAG_EXCLUSIVE) && !--nr_exclusive)
 			break;

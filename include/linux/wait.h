@@ -99,16 +99,16 @@ extern void __init_waitqueue_head(wait_queue_head_t *q, struct lock_class_key *)
 static inline void init_waitqueue_entry(wait_queue_t *q, struct task_struct *p)
 {
 	q->flags = 0;
-	q->private = p;
-	q->func = default_wake_function;
+	q->private = p; // private设置为当前进程（current）
+	q->func = default_wake_function; // 回调函数设置为default_wake_function
 }
 
 static inline void init_waitqueue_func_entry(wait_queue_t *q,
 					wait_queue_func_t func)
 {
 	q->flags = 0;
-	q->private = NULL;
-	q->func = func;
+	q->private = NULL; // 这里socket是有epoll管理的，不需要一个socket就绪的时候就唤醒进程，所以设置为NULL
+	q->func = func; // 将回调函数设置为ep_poll_callback，当有数据到达时使用q->func，进而通知epoll对象
 }
 
 static inline int waitqueue_active(wait_queue_head_t *q)

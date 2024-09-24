@@ -116,7 +116,7 @@ struct nested_calls {
  */
 struct epitem {
 	/* RB tree node used to link this structure to the eventpoll RB tree */
-	struct rb_node rbn;
+	struct rb_node rbn; // 红黑树节点
 
 	/* List header used to link this structure to the eventpoll ready list */
 	struct list_head rdllink;
@@ -128,16 +128,16 @@ struct epitem {
 	struct epitem *next;
 
 	/* The file descriptor information this item refers to */
-	struct epoll_filefd ffd;
+	struct epoll_filefd ffd; // socket文件描述符信息
 
 	/* Number of active wait queue attached to poll operations */
 	int nwait;
 
 	/* List containing poll wait queues */
-	struct list_head pwqlist;
+	struct list_head pwqlist; // 等待队列
 
 	/* The "container" of this item */
-	struct eventpoll *ep;
+	struct eventpoll *ep; // 所归属的eventpoll对象
 
 	/* List header used to link this item to the "struct file" items list */
 	struct list_head fllink;
@@ -164,15 +164,19 @@ struct eventpoll {
 	struct mutex mtx;
 
 	/* Wait queue used by sys_epoll_wait() */
+	// sys_epoll_wait用到的等待队列
+	// 等待队列链表：软中断数据就绪的时候会通过wq来找到阻塞在epoll对象上的用户进程
 	wait_queue_head_t wq;
 
 	/* Wait queue used by file->poll() */
 	wait_queue_head_t poll_wait;
 
 	/* List of ready file descriptors */
-	struct list_head rdllist; // 就绪的fd链表
+	// 接收就绪的文件描述符链表
+	struct list_head rdllist;
 
 	/* RB tree root used to store monitored fd structs */
+	// 每个epoll对象中都有一棵红黑树，支持高效的查找、插入和删除
 	struct rb_root rbr; // 红黑树根节点
 
 	/*
@@ -730,15 +734,19 @@ static int ep_alloc(struct eventpoll **pep)
 
 	user = get_current_user();
 	error = -ENOMEM;
+	// 申请eventpoll内存
 	ep = kzalloc(sizeof(*ep), GFP_KERNEL);
 	if (unlikely(!ep))
 		goto free_uid;
 
 	spin_lock_init(&ep->lock);
 	mutex_init(&ep->mtx);
+	// 初始化等待队列头
 	init_waitqueue_head(&ep->wq);
 	init_waitqueue_head(&ep->poll_wait);
+	// 初始化就绪列表
 	INIT_LIST_HEAD(&ep->rdllist);
+	// 初始化红黑树
 	ep->rbr = RB_ROOT;
 	ep->ovflist = EP_UNACTIVE_PTR;
 	ep->user = user;
@@ -790,8 +798,8 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
 {
 	int pwake = 0;
 	unsigned long flags;
-	struct epitem *epi = ep_item_from_wait(wait);
-	struct eventpoll *ep = epi->ep;
+	struct epitem *epi = ep_item_from_wait(wait); // 获取wait对应的epitem
+	struct eventpoll *ep = epi->ep; // 获取epitem对应的eventpoll对象
 
 	spin_lock_irqsave(&ep->lock, flags);
 
@@ -829,14 +837,14 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
 
 	/* If this file is already in the ready list we exit soon */
 	if (!ep_is_linked(&epi->rdllink))
-		list_add_tail(&epi->rdllink, &ep->rdllist);
+		list_add_tail(&epi->rdllink, &ep->rdllist); // 将当前epitem添加到eventpoll的就绪列表中
 
 	/*
 	 * Wake up ( if active ) both the eventpoll wait list and the ->poll()
 	 * wait list.
 	 */
-	if (waitqueue_active(&ep->wq))
-		wake_up_locked(&ep->wq);
+	if (waitqueue_active(&ep->wq)) // 查看eventpoll对象的等待队列是否有进程在等待
+		wake_up_locked(&ep->wq); // 调用wake_up_locked => __wake_up_locked => __wake_up_common => default_wake_function
 	if (waitqueue_active(&ep->poll_wait))
 		pwake++;
 
@@ -854,6 +862,7 @@ out_unlock:
  * This is the callback that is used to add our wait queue to the
  * target file wakeup lists.
  */
+// 新建一个等待队列项，并注册其回调函数为ep_poll_callback函数，然后将这个等待项添加到socket的等待队列中
 static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
 				 poll_table *pt)
 {
@@ -861,10 +870,10 @@ static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
 	struct eppoll_entry *pwq;
 
 	if (epi->nwait >= 0 && (pwq = kmem_cache_alloc(pwq_cache, GFP_KERNEL))) {
-		init_waitqueue_func_entry(&pwq->wait, ep_poll_callback);
+		init_waitqueue_func_entry(&pwq->wait, ep_poll_callback); // 初始化回调方法
 		pwq->whead = whead;
 		pwq->base = epi;
-		add_wait_queue(whead, &pwq->wait);
+		add_wait_queue(whead, &pwq->wait); // 将等待项添加到socket的等待队列whead中（注意不是epoll对象的等待队列）
 		list_add_tail(&pwq->llink, &epi->pwqlist);
 		epi->nwait++;
 	} else {
@@ -906,22 +915,26 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
 	if (unlikely(atomic_read(&ep->user->epoll_watches) >=
 		     max_user_watches))
 		return -ENOSPC;
+	// 1. 分配并初始化epitem
+	// 分配一个epitem结构体
 	if (!(epi = kmem_cache_alloc(epi_cache, GFP_KERNEL)))
 		return -ENOMEM;
 
 	/* Item initialization follow here ... */
+	// 对分配的epitem结构体进行初始化
 	INIT_LIST_HEAD(&epi->rdllink);
 	INIT_LIST_HEAD(&epi->fllink);
 	INIT_LIST_HEAD(&epi->pwqlist);
-	epi->ep = ep;
-	ep_set_ffd(&epi->ffd, tfile, fd);
+	epi->ep = ep; // epi->ep指向eventpoll对象
+	ep_set_ffd(&epi->ffd, tfile, fd); // epi->ffd中存了fd和struct file对象地址
 	epi->event = *event;
 	epi->nwait = 0;
 	epi->next = EP_UNACTIVE_PTR;
 
 	/* Initialize the poll table using the queue callback */
+	// 2. 设置socket等待队列
 	epq.epi = epi;
-	init_poll_funcptr(&epq.pt, ep_ptable_queue_proc);
+	init_poll_funcptr(&epq.pt, ep_ptable_queue_proc); // 定义并初始化ep_pqueue对象
 
 	/*
 	 * Attach the item to the poll hooks and get current event bits.
@@ -930,7 +943,8 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
 	 * this operation completes, the poll callback can start hitting
 	 * the new item.
 	 */
-	revents = tfile->f_op->poll(tfile, &epq.pt);
+	// 调用socket的poll函数，将epitem插入到socket的等待队列中
+	revents = tfile->f_op->poll(tfile, &epq.pt); // 调用sock_poll函数
 
 	/*
 	 * We have to check if something went wrong during the poll wait queue
@@ -950,6 +964,7 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
 	 * Add the current item to the RB tree. All RB tree operations are
 	 * protected by "mtx", and ep_insert() is called with "mtx" held.
 	 */
+	// 3. 将epitem插入eventpoll对象的红黑树中
 	ep_rbtree_insert(ep, epi);
 
 	/* We have to drop the new item inside our item list to keep track of it */
@@ -1133,15 +1148,15 @@ retry:
 	spin_lock_irqsave(&ep->lock, flags);
 
 	res = 0;
-	if (list_empty(&ep->rdllist)) {
+	if (list_empty(&ep->rdllist)) { // 1. 判断就绪队列上有没有就绪事件
 		/*
 		 * We don't have any available event to return to the caller.
 		 * We need to sleep here, and we will be wake up by
 		 * ep_poll_callback() when events will become available.
 		 */
-		init_waitqueue_entry(&wait, current);
+		init_waitqueue_entry(&wait, current); // 2. 初始化等待项，并关联当前进程（current）
 		wait.flags |= WQ_FLAG_EXCLUSIVE;
-		__add_wait_queue(&ep->wq, &wait);
+		__add_wait_queue(&ep->wq, &wait); // 3. 将等待项添加到epoll对象的等待队列(wq)中
 
 		for (;;) {
 			/*
@@ -1149,7 +1164,7 @@ retry:
 			 * a wakeup in between. That's why we set the task state
 			 * to TASK_INTERRUPTIBLE before doing the checks.
 			 */
-			set_current_state(TASK_INTERRUPTIBLE);
+			set_current_state(TASK_INTERRUPTIBLE); // 将进程状态设置为TASK_INTERRUPTIBLE
 			if (!list_empty(&ep->rdllist) || !jtimeout)
 				break;
 			if (signal_pending(current)) {
@@ -1158,7 +1173,7 @@ retry:
 			}
 
 			spin_unlock_irqrestore(&ep->lock, flags);
-			jtimeout = schedule_timeout(jtimeout);
+			jtimeout = schedule_timeout(jtimeout); // 调用schedule_timeout函数，进入睡眠状态，主动让出CPU
 			spin_lock_irqsave(&ep->lock, flags);
 		}
 		__remove_wait_queue(&ep->wq, &wait);
@@ -1176,7 +1191,7 @@ retry:
 	 * more luck.
 	 */
 	if (!res && eavail &&
-	    !(res = ep_send_events(ep, events, maxevents)) && jtimeout)
+	    !(res = ep_send_events(ep, events, maxevents)) && jtimeout) // 调用ep_send_events函数，将就绪事件传递给用户空间
 		goto retry;
 
 	return res;
@@ -1198,7 +1213,7 @@ SYSCALL_DEFINE1(epoll_create1, int, flags)
 	/*
 	 * Create the internal data structure ("struct eventpoll").
 	 */
-	error = ep_alloc(&ep);
+	error = ep_alloc(&ep); // 创建一个eventpoll对象
 	if (error < 0)
 		return error;
 	/*
@@ -1242,11 +1257,13 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 
 	/* Get the "struct file *" for the eventpoll file */
 	error = -EBADF;
+	// 根据epfd找到eventpoll内核对象
 	file = fget(epfd);
 	if (!file)
 		goto error_return;
 
 	/* Get the "struct file *" for the target file */
+	// 根据socket句柄号，找到其file内核对象
 	tfile = fget(fd);
 	if (!tfile)
 		goto error_fput;
@@ -1282,7 +1299,7 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 
 	error = -EINVAL;
 	switch (op) {
-	case EPOLL_CTL_ADD:
+	case EPOLL_CTL_ADD: // 添加一个fd到epoll对象中
 		if (!epi) {
 			epds.events |= POLLERR | POLLHUP;
 			error = ep_insert(ep, &epds, tfile, fd);

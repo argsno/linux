@@ -40,7 +40,7 @@ typedef struct poll_table_struct {
 static inline void poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
 {
 	if (p && wait_address)
-		p->qproc(filp, wait_address, p);
+		p->qproc(filp, wait_address, p); // 调用 p->qproc 函数（前面在init_poll_funcptr被设置为 ep_ptable_queue_proc）
 }
 
 static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
