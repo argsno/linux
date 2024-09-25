@@ -757,6 +757,7 @@ int inet_getname(struct socket *sock, struct sockaddr *uaddr,
 }
 EXPORT_SYMBOL(inet_getname);
 
+// 进入传输层
 int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 		 size_t size)
 {
@@ -769,7 +770,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 	    inet_autobind(sk))
 		return -EAGAIN;
 
-	return sk->sk_prot->sendmsg(iocb, sk, msg, size);
+	return sk->sk_prot->sendmsg(iocb, sk, msg, size); // 调用传输层的sendmsg（对于TCP协议，调用的是tcp_sendmsg，对于UDP协议，调用的是udp_sendmsg）
 }
 EXPORT_SYMBOL(inet_sendmsg);
 

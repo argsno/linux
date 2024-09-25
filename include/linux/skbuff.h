@@ -421,7 +421,7 @@ struct sk_buff {
 	 */
 	char			cb[48] __aligned(8);
 
-	unsigned long		_skb_refdst;
+	unsigned long		_skb_refdst; // 保存了一些路由相关信息
 #ifdef CONFIG_XFRM
 	struct	sec_path	*sp;
 #endif

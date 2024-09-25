@@ -105,9 +105,9 @@ int ip_local_out(struct sk_buff *skb)
 {
 	int err;
 
-	err = __ip_local_out(skb);
+	err = __ip_local_out(skb); // 执行netfilter过滤
 	if (likely(err == 1))
-		err = dst_output(skb);
+		err = dst_output(skb); // 开始发送数据
 
 	return err;
 }
@@ -193,12 +193,13 @@ static inline int ip_finish_output2(struct sk_buff *skb)
 	}
 
 	rcu_read_lock_bh();
+	// 根据下一跳的IP地址查找邻居项，找不到就创建一个
 	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
 	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
 	if (unlikely(!neigh))
 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
 	if (!IS_ERR(neigh)) {
-		int res = dst_neigh_output(dst, neigh, skb);
+		int res = dst_neigh_output(dst, neigh, skb); // 继续往下层传递
 
 		rcu_read_unlock_bh();
 		return res;
@@ -228,6 +229,7 @@ static int ip_finish_output(struct sk_buff *skb)
 		return dst_output(skb);
 	}
 #endif
+	// 大于MTU的话就要进行分片了（以太网的MTU一般是1500）
 	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
 		return ip_fragment(skb, ip_finish_output2);
 	else
@@ -299,11 +301,13 @@ int ip_output(struct sk_buff *skb)
 {
 	struct net_device *dev = skb_dst(skb)->dev;
 
+	// 更新统计信息
 	IP_UPD_PO_STATS(dev_net(dev), IPSTATS_MIB_OUT, skb->len);
 
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_IP);
 
+	// 再次交给netfilter，完毕后调用ip_finish_output
 	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, skb, NULL, dev,
 			    ip_finish_output,
 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
@@ -323,6 +327,9 @@ static void ip_copy_addrs(struct iphdr *iph, const struct flowi4 *fl4)
 	       sizeof(fl4->saddr) + sizeof(fl4->daddr));
 }
 
+// 进入网络层处理
+// 在网络层主要处理路由项查找、IP头设置、netfilter过滤、skb切分（大于MTU的话）等
+// 处理完这些工作后会交由更下一层的邻居子系统来处理
 int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
 {
 	struct sock *sk = skb->sk;
@@ -344,8 +351,9 @@ int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
 		goto packet_routed;
 
 	/* Make sure we can route this packet. */
+	// 检查socket中是否有缓存的路由表
 	rt = (struct rtable *)__sk_dst_check(sk, 0);
-	if (rt == NULL) {
+	if (rt == NULL) { // 没有路由则展开查找
 		__be32 daddr;
 
 		/* Use correct destination address if we have options. */
@@ -357,6 +365,7 @@ int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
 		 * keep trying until route appears or the connection times
 		 * itself out.
 		 */
+		// 查找路由项，并缓存到socket中
 		rt = ip_route_output_ports(sock_net(sk), fl4, sk,
 					   daddr, inet->inet_saddr,
 					   inet->inet_dport,
@@ -368,6 +377,7 @@ int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
 			goto no_route;
 		sk_setup_caps(sk, &rt->dst);
 	}
+	// 为skb设置路由项
 	skb_dst_set_noref(skb, &rt->dst);
 
 packet_routed:
@@ -377,6 +387,7 @@ packet_routed:
 	/* OK, we know where to send it, allocate and build IP header. */
 	skb_push(skb, sizeof(struct iphdr) + (inet_opt ? inet_opt->opt.optlen : 0));
 	skb_reset_network_header(skb);
+	// 设置IP头
 	iph = ip_hdr(skb);
 	*((__be16 *)iph) = htons((4 << 12) | (5 << 8) | (inet->tos & 0xff));
 	if (ip_dont_fragment(sk, &rt->dst) && !skb->local_df)
@@ -400,7 +411,7 @@ packet_routed:
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
 
-	res = ip_local_out(skb);
+	res = ip_local_out(skb); // 发送
 	rcu_read_unlock();
 	return res;
 

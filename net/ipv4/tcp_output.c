@@ -846,6 +846,9 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	if (icsk->icsk_ca_ops->flags & TCP_CONG_RTT_STAMP)
 		__net_timestamp(skb);
 
+	// 克隆新的skb出来
+	// 为什么需要克隆新的skb：因为skb后续在调用网络层，最后到达网卡发送完成的时候，这个skb会被释放掉。
+	// 而TCP协议是支持丢失重传的，在收到对方的ACK之前，这个skb不能被删除。需要等到对方的ACK确认之后，才能删除。
 	if (likely(clone_it)) {
 		const struct sk_buff *fclone = skb + 1;
 
@@ -892,6 +895,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
 
 	/* Build TCP header and checksum it. */
+	// 封装TCP头部
+	// skb其实是包含了网络协议中所有的头部，在设置TCP头部的时候，只是把指针指向skb的合适位置
 	th = tcp_hdr(skb);
 	th->source		= inet->inet_sport;
 	th->dest		= inet->inet_dport;
@@ -947,7 +952,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
 			      tcp_skb_pcount(skb));
 
-	err = icsk->icsk_af_ops->queue_xmit(skb, &inet->cork.fl);
+	err = icsk->icsk_af_ops->queue_xmit(skb, &inet->cork.fl); // 调用网络层发送接口（IP协议调用的是ip_queue_xmit）
 	if (likely(err <= 0))
 		return err;
 
@@ -1808,6 +1813,8 @@ static int tcp_mtu_probe(struct sock *sk)
  * Returns true, if no segments are in flight and we have queued segments,
  * but cannot send anything now because of SWS or another problem.
  */
+// 传输层发送：这个函数处理了传输层的拥塞控制、滑动窗口相关的工作
+// 满足窗口要求的时候，设置TCP头然后将skb传到更低的网络层进行处理
 static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 			   int push_one, gfp_t gfp)
 {
@@ -1829,6 +1836,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 		}
 	}
 
+	// 循环获取待发送的skb
 	while ((skb = tcp_send_head(sk))) {
 		unsigned int limit;
 
@@ -1839,7 +1847,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 		if (unlikely(tp->repair) && tp->repair_queue == TCP_SEND_QUEUE)
 			goto repair; /* Skip network transmission */
 
-		cwnd_quota = tcp_cwnd_test(tp, skb);
+		cwnd_quota = tcp_cwnd_test(tp, skb); // 滑动窗口相关
 		if (!cwnd_quota) {
 			if (push_one == 2)
 				/* Force out a loss probe pkt. */
@@ -1881,7 +1889,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 
 		TCP_SKB_CB(skb)->when = tcp_time_stamp;
 
-		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
+		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp))) // 真正开启发送
 			break;
 
 repair:

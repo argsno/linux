@@ -137,6 +137,8 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
 	return 1;
 }
 
+// 执行netfilter过滤
+// 如果使用iptables配置了一些规则，这里会检测是否命中规则
 static inline int nf_hook(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
 			  struct net_device *indev, struct net_device *outdev,
 			  int (*okfn)(struct sk_buff *))

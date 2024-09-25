@@ -16,12 +16,14 @@ static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd
 	return val * hash_rnd;
 }
 
+// 在arp缓存中查找
 static inline struct neighbour *__ipv4_neigh_lookup_noref(struct net_device *dev, u32 key)
 {
 	struct neigh_hash_table *nht = rcu_dereference_bh(arp_tbl.nht);
 	struct neighbour *n;
 	u32 hash_val;
 
+	// 计算哈希值，加速查找
 	hash_val = arp_hashfn(key, dev, nht->hash_rnd[0]) >> (32 - nht->hash_shift);
 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
 	     n != NULL;

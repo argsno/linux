@@ -121,7 +121,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
 
 	HARD_TX_LOCK(dev, txq, smp_processor_id());
 	if (!netif_xmit_frozen_or_stopped(txq))
-		ret = dev_hard_start_xmit(skb, dev, txq);
+		ret = dev_hard_start_xmit(skb, dev, txq); // 调用驱动程序来发送数据
 
 	HARD_TX_UNLOCK(dev, txq);
 
@@ -175,6 +175,7 @@ static inline int qdisc_restart(struct Qdisc *q)
 	struct sk_buff *skb;
 
 	/* Dequeue packet */
+	// 从qdisc中取出要发送的skb
 	skb = dequeue_skb(q);
 	if (unlikely(!skb))
 		return 0;
@@ -183,20 +184,24 @@ static inline int qdisc_restart(struct Qdisc *q)
 	dev = qdisc_dev(q);
 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
 
-	return sch_direct_xmit(skb, q, dev, txq, root_lock);
+	return sch_direct_xmit(skb, q, dev, txq, root_lock); // 调用sch_direct_xmit函数发送skb
 }
 
 void __qdisc_run(struct Qdisc *q)
 {
 	int quota = weight_p;
 
-	while (qdisc_restart(q)) {
+	while (qdisc_restart(q)) { // 循环从队列取出一个skb并发送（此时占用的是用户进程的系统态时间sy）
 		/*
 		 * Ordered by possible occurrence: Postpone processing if
 		 * 1. we've exceeded packet quota
 		 * 2. another process needs the CPU;
 		 */
+		// 如果发生下面情况之一，则延后处理：
+		// 1. quota用尽
+		// 2. 其他进程需要CPU
 		if (--quota <= 0 || need_resched()) {
+			// 将触发一次NET_TX_SOFTIRQ类型softirq
 			__netif_schedule(q);
 			break;
 		}

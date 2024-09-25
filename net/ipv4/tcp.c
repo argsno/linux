@@ -1026,7 +1026,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 
 	lock_sock(sk);
 
-	flags = msg->msg_flags;
+	flags = msg->msg_flags; // 各种标志
 	if (flags & MSG_FASTOPEN) {
 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn);
 		if (err == -EINPROGRESS && copied_syn > 0)
@@ -1067,8 +1067,8 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	mss_now = tcp_send_mss(sk, &size_goal, flags);
 
 	/* Ok commence sending. */
-	iovlen = msg->msg_iovlen;
-	iov = msg->msg_iov;
+	iovlen = msg->msg_iovlen; // 数据块数为1
+	iov = msg->msg_iov; // 用户数据地址
 	copied = 0;
 
 	err = -EPIPE;
@@ -1077,9 +1077,9 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 
 	sg = !!(sk->sk_route_caps & NETIF_F_SG);
 
-	while (--iovlen >= 0) {
+	while (--iovlen >= 0) { // 遍历用户层的数据块
 		size_t seglen = iov->iov_len;
-		unsigned char __user *from = iov->iov_base;
+		unsigned char __user *from = iov->iov_base; // 待发送数据块的地址
 
 		iov++;
 		if (unlikely(offset > 0)) {  /* Skip bytes copied in SYN */
@@ -1096,14 +1096,14 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 			int copy = 0;
 			int max = size_goal;
 
-			skb = tcp_write_queue_tail(sk);
+			skb = tcp_write_queue_tail(sk); // 获取发送队列
 			if (tcp_send_head(sk)) {
 				if (skb->ip_summed == CHECKSUM_NONE)
 					max = mss_now;
 				copy = max - skb->len;
 			}
 
-			if (copy <= 0) {
+			if (copy <= 0) { // 需要申请新的skb
 new_segment:
 				/* Allocate new segment. If the interface is SG,
 				 * allocate skb fitting to single page.
@@ -1111,6 +1111,7 @@ new_segment:
 				if (!sk_stream_memory_free(sk))
 					goto wait_for_sndbuf;
 
+				// 申请skb，并添加到发送队列的尾部
 				skb = sk_stream_alloc_skb(sk,
 							  select_size(sk, sg),
 							  sk->sk_allocation);
@@ -1123,7 +1124,7 @@ new_segment:
 				if (sk->sk_route_caps & NETIF_F_ALL_CSUM)
 					skb->ip_summed = CHECKSUM_PARTIAL;
 
-				skb_entail(sk, skb);
+				skb_entail(sk, skb); // 将skb挂到socket的发送队列上
 				copy = size_goal;
 				max = size_goal;
 			}
@@ -1133,9 +1134,11 @@ new_segment:
 				copy = seglen;
 
 			/* Where to copy to? */
-			if (skb_availroom(skb) > 0) {
+			if (skb_availroom(skb) > 0) { // skb有足够的空间
 				/* We have some space in skb head. Superb! */
 				copy = min_t(int, copy, skb_availroom(skb));
+				// 将用户空间的数据拷贝到内核空间，同时计算校验和
+				// from是用户空间的地址，copy是拷贝的长度
 				err = skb_add_data_nocache(sk, skb, from, copy);
 				if (err)
 					goto do_fault;
@@ -1194,11 +1197,13 @@ new_segment:
 			if (skb->len < max || (flags & MSG_OOB) || unlikely(tp->repair))
 				continue;
 
-			if (forced_push(tp)) {
+			// 发送判断
+			if (forced_push(tp)) { // 强制发送：未发送的数据是否已经超过最大窗口的一半
 				tcp_mark_push(tp, skb);
 				__tcp_push_pending_frames(sk, mss_now, TCP_NAGLE_PUSH);
 			} else if (skb == tcp_send_head(sk))
 				tcp_push_one(sk, mss_now);
+			// 都不满足的话，本次用户要发送的数据只是拷贝到内核就算完事了
 			continue;
 
 wait_for_sndbuf:

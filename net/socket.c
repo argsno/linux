@@ -622,7 +622,7 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
 	si->msg = msg;
 	si->size = size;
 
-	return sock->ops->sendmsg(iocb, sock, msg, size);
+	return sock->ops->sendmsg(iocb, sock, msg, size); // 调用协议族的sendmsg（TCP/IP协议栈AF_INET调用的是inet_sendmsg）
 }
 
 static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
@@ -630,7 +630,7 @@ static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 {
 	int err = security_socket_sendmsg(sock, msg, size);
 
-	return err ?: __sock_sendmsg_nosec(iocb, sock, msg, size);
+	return err ?: __sock_sendmsg_nosec(iocb, sock, msg, size); // 调用__sock_sendmsg_nosec
 }
 
 int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
@@ -641,7 +641,7 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 
 	init_sync_kiocb(&iocb, NULL);
 	iocb.private = &siocb;
-	ret = __sock_sendmsg(&iocb, sock, msg, size);
+	ret = __sock_sendmsg(&iocb, sock, msg, size); // 调用__sock_sendmsg
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&iocb);
 	return ret;
@@ -1763,10 +1763,11 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 
 	if (len > INT_MAX)
 		len = INT_MAX;
-	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+	sock = sockfd_lookup_light(fd, &err, &fput_needed); // 根据fd找到socket
 	if (!sock)
 		goto out;
 
+	// 初始化msghdr对象（填充用户传入的数据）
 	iov.iov_base = buff;
 	iov.iov_len = len;
 	msg.msg_name = NULL;
@@ -1785,7 +1786,7 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 	if (sock->file->f_flags & O_NONBLOCK)
 		flags |= MSG_DONTWAIT;
 	msg.msg_flags = flags;
-	err = sock_sendmsg(sock, &msg, len);
+	err = sock_sendmsg(sock, &msg, len); // 调用sock_sendmsg函数
 
 out_put:
 	fput_light(sock->file, fput_needed);

@@ -408,7 +408,7 @@ static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
 	if ((n->nud_state & NUD_CONNECTED) && hh->hh_len)
 		return neigh_hh_output(hh, skb);
 	else
-		return n->output(n, skb);
+		return n->output(n, skb); // 调用output（实际指向的是neigh_resolve_output函数）
 }
 
 static inline struct neighbour *dst_neigh_lookup(const struct dst_entry *dst, const void *daddr)
@@ -445,6 +445,7 @@ static inline void dst_set_expires(struct dst_entry *dst, int timeout)
 /* Output packet to network from transport.  */
 static inline int dst_output(struct sk_buff *skb)
 {
+	// 找到这个skb的路由表（dst条目），然后调用路由表的output函数（IP协议指向的是ip_output函数）
 	return skb_dst(skb)->output(skb);
 }
 

@@ -335,6 +335,9 @@ static inline int neigh_hh_bridge(struct hh_cache *hh, struct sk_buff *skb)
 }
 #endif
 
+// 邻居子系统是位于网络层和数据链路层之间的一个子系统，它的作用是为网络层提供下层的封装，让网络层不必关心下层的地址信息，让下层决定发送到哪个MAC地址
+// 无论是IPv4还是IPv6，都需要使用该模块
+// 在邻居子系统里主要查找或者创建邻居项，在创建邻居项时，有可能会发出ARP请求。然后封装MAC头，将发送过程在传递给更下层的网络设备子系统
 static inline int neigh_hh_output(const struct hh_cache *hh, struct sk_buff *skb)
 {
 	unsigned int seq;

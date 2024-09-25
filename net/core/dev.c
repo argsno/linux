@@ -2106,7 +2106,7 @@ static inline void __netif_reschedule(struct Qdisc *q)
 	q->next_sched = NULL;
 	*sd->output_queue_tailp = q;
 	sd->output_queue_tailp = &q->next_sched;
-	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+	raise_softirq_irqoff(NET_TX_SOFTIRQ); // 触发NET_TX_SOFTIRQ软中断（会进入net_tx_action函数）
 	local_irq_restore(flags);
 }
 
@@ -2510,9 +2510,11 @@ static inline int skb_needs_linearize(struct sk_buff *skb,
 				!(features & NETIF_F_SG)));
 }
 
+// 无论是用户进程的内核态，还是软中断上下文，都会调用网络设备子系统的dev_hard_start_xmit函数
 int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
 			struct netdev_queue *txq)
 {
+	// 获取设备的回调函数集合ops
 	const struct net_device_ops *ops = dev->netdev_ops;
 	int rc = NETDEV_TX_OK;
 	unsigned int skb_len;
@@ -2527,6 +2529,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
 			skb_dst_drop(skb);
 
+		// 获取设备支持的功能列表
 		features = netif_skb_features(skb);
 
 		if (vlan_tx_tag_present(skb) &&
@@ -2576,6 +2579,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
 		if (!list_empty(&ptype_all))
 			dev_queue_xmit_nit(skb, dev);
 
+		// 调用驱动的ops里的发送回调函数ndo_start_xmit将数据包传给网卡设备（在net_device_ops中定义）
+		// igb的实现函数是igb_xmit_frame，在网卡驱动初始化的时候被赋值
 		skb_len = skb->len;
 		rc = ops->ndo_start_xmit(skb, dev);
 		trace_net_dev_xmit(skb, rc, dev, skb_len);
@@ -2675,7 +2680,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
 	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
 		kfree_skb(skb);
 		rc = NET_XMIT_DROP;
-	} else if ((q->flags & TCQ_F_CAN_BYPASS) && !qdisc_qlen(q) &&
+	} else if ((q->flags & TCQ_F_CAN_BYPASS) && !qdisc_qlen(q) && // 如果可以绕过排队系统
 		   qdisc_run_begin(q)) {
 		/*
 		 * This is a work-conserving queue; there are no old skbs
@@ -2697,15 +2702,15 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
 			qdisc_run_end(q);
 
 		rc = NET_XMIT_SUCCESS;
-	} else {
+	} else { // 正常排队
 		skb_dst_force(skb);
-		rc = q->enqueue(skb, q) & NET_XMIT_MASK;
+		rc = q->enqueue(skb, q) & NET_XMIT_MASK; // 入队
 		if (qdisc_run_begin(q)) {
 			if (unlikely(contended)) {
 				spin_unlock(&q->busylock);
 				contended = false;
 			}
-			__qdisc_run(q);
+			__qdisc_run(q); // 开始发送
 		}
 	}
 	spin_unlock(root_lock);
@@ -2775,6 +2780,7 @@ EXPORT_SYMBOL(dev_loopback_xmit);
  *      the BH enable code must have IRQs enabled so that it will not deadlock.
  *          --BLG
  */
+// 进入网络设备子系统
 int dev_queue_xmit(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
@@ -2791,17 +2797,19 @@ int dev_queue_xmit(struct sk_buff *skb)
 
 	skb_update_prio(skb);
 
-	txq = netdev_pick_tx(dev, skb);
-	q = rcu_dereference_bh(txq->qdisc);
+	txq = netdev_pick_tx(dev, skb); // 选择发送队列
+	q = rcu_dereference_bh(txq->qdisc); // 获取与此队列相关的排队规则
 
 #ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_EGRESS);
 #endif
 	trace_net_dev_queue(skb);
 	if (q->enqueue) {
+		// 如果有队列，则调用__dev_xmit_skb继续处理数据
 		rc = __dev_xmit_skb(skb, q, dev, txq);
 		goto out;
 	}
+	// 没有队列的是loopback设备和隧道设备
 
 	/* The device has no queue. Common case for software devices:
 	   loopback, all the sorts of tunnels...
@@ -2875,7 +2883,8 @@ static inline void ____napi_schedule(struct softnet_data *sd,
 				     struct napi_struct *napi)
 {
 	list_add_tail(&napi->poll_list, &sd->poll_list);
-	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+	// 无论硬中断是因为有数据要接收，还是发送完成通知，从硬中断触发的软中断都是NET_RX_SOFTIRQ
+	__raise_softirq_irqoff(NET_RX_SOFTIRQ); // 触发软中断(软中断回调函数igb_poll)
 }
 
 #ifdef CONFIG_RPS
@@ -3211,8 +3220,12 @@ int netif_rx_ni(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(netif_rx_ni);
 
+// NET_TX_SOFTIRQ软中断处理函数
+// 这里发送数据消耗的CPU就都显示在si，不会消耗用户进程的系统时间
 static void net_tx_action(struct softirq_action *h)
 {
+	// 通过softnet_data获取发送队列
+	// 进程内核态在调用__netif_reschedule时，把发送队列写到softnet_data的output_queue里了
 	struct softnet_data *sd = &__get_cpu_var(softnet_data);
 
 	if (sd->completion_queue) {
@@ -3233,16 +3246,16 @@ static void net_tx_action(struct softirq_action *h)
 		}
 	}
 
-	if (sd->output_queue) {
+	if (sd->output_queue) { // 如果output queue上有qdisc
 		struct Qdisc *head;
 
 		local_irq_disable();
-		head = sd->output_queue;
+		head = sd->output_queue; // 将head指向第一个qdisc
 		sd->output_queue = NULL;
 		sd->output_queue_tailp = &sd->output_queue;
 		local_irq_enable();
 
-		while (head) {
+		while (head) { // 遍历qdisc列表
 			struct Qdisc *q = head;
 			spinlock_t *root_lock;
 
@@ -3253,7 +3266,7 @@ static void net_tx_action(struct softirq_action *h)
 				smp_mb__before_clear_bit();
 				clear_bit(__QDISC_STATE_SCHED,
 					  &q->state);
-				qdisc_run(q);
+				qdisc_run(q); // 发送数据
 				spin_unlock(root_lock);
 			} else {
 				if (!test_bit(__QDISC_STATE_DEACTIVATED,
